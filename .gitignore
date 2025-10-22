@@ -1,0 +1,8 @@
+# IntelliJ
+.idea/
+*.iml
+
+# NetBeans
+nbproject/private/
+build/
+dist/
