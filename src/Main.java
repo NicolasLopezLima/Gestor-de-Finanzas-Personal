@@ -1,4 +1,7 @@
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Scanner;
 
 
@@ -72,22 +75,41 @@ public class Main {
         } while (opcion != 7);
     }
 
-    private static void registroDeIngreso() {
-        Scanner sc = new Scanner(System.in);
-        String descripcion, categoria, fecha;
-        int cantidad;
-        System.out.print("Descripción: ");
-        descripcion = sc.nextLine();
-        System.out.print("Cantidad: ");
-        cantidad = Integer.parseInt(sc.nextLine());
-        // lo hago asi porque sino no hacia el salto de linea y lo hacia recien en categoria
-        // no dejandome escribir nada en categoria
-        System.out.print("Categoría: ");
-        categoria = sc.nextLine();
-        System.out.print("Fecha: ");
-        fecha = sc.nextLine();
+        private static void registroDeIngreso() {
+            Scanner sc = new Scanner(System.in);
+            String descripcion, categoria, fecha;
+            int cantidad;
+            System.out.print("Descripción: ");
+            descripcion = sc.nextLine();
+            System.out.print("Cantidad: ");
+            cantidad = Integer.parseInt(sc.nextLine());
+            // lo hago asi porque sino no hacia el salto de linea y lo hacia recien en categoria
+            // no dejandome escribir nada en categoria
+            System.out.print("Categoría: ");
+            categoria = sc.nextLine();
+            System.out.print("Fecha: ");
+            fecha = sc.nextLine();
+            guardarIngresos(descripcion,cantidad,categoria,fecha);
+        }
 
-        // --FALTA AGREGAR FUNCIÓN QUE GUARDE LOS DATOS EN UN FICHERO-- //
+    private static void guardarIngresos(String descripcion, int cantidad, String categoria, String fecha) {
+        String ruta = "C:\\Nicolas\\Universidad\\ProyectosDeJava\\Gestor-de-Finanzas-Personal\\registro_ingresos.txt";
+        PrintWriter salida = null;
+        try {
+            salida = new PrintWriter(new FileWriter(ruta, true));
+            salida.println("Descripción: " + descripcion);
+            salida.println("Cantidad: " + cantidad);
+            salida.println("Categoría: " + categoria);
+            salida.println("Fecha: " + fecha);
+            salida.println("------------------------------------");
+        } catch (IOException e) {
+            System.out.println("⚠️ Error al guardar los datos: " + e.getMessage());
+        } finally {
+            if (salida != null) {
+                salida.close();
+            }
+        }
     }
+
 
 }
