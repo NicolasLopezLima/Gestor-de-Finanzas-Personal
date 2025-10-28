@@ -3,3 +3,8 @@ Cantidad: 1500
 Categoría: sueldo
 Fecha: 15/02/2025
 ------------------------------------
+Descripción: Sueldo Mensual
+Cantidad: 200
+Categoría: sueldo
+Fecha: 1/2/03
+------------------------------------
