@@ -1,0 +1,5 @@
+Descripción: super
+Cantidad: -30
+Categoría: alimentacion
+Fecha: 3/7/25
+------------------------------------
