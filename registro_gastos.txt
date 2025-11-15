@@ -1,5 +1,3 @@
-Descripción: super
-Cantidad: -30
-Categoría: alimentacion
-Fecha: 3/7/25
-------------------------------------
+super,[GASTO],-30,alimentacion,3/7/25
+Deuda,[GASTO],-100,Deudor,20/01/2020
+Gran deuda,[GASTO],-300,Inversion,30/02/2019
