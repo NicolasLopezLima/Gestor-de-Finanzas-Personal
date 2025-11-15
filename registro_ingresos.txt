@@ -1,10 +1,3 @@
-Descripción: Sueldo Mensual
-Cantidad: 1500
-Categoría: sueldo
-Fecha: 15/02/2025
-------------------------------------
-Descripción: Sueldo Mensual
-Cantidad: 200
-Categoría: sueldo
-Fecha: 1/2/03
-------------------------------------
+Sueldo Mensual,[INGRESO],1500,sueldo,15/02/2025
+Sueldo Mensual,[INGRESO],200,sueldo,1/2/03
+Paga,[INGRESO],100,Pagos,04/05/2025
