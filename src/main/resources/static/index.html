@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Finanzas Personal</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <span class="logo-icon">💰</span>
+            <span class="logo-text">FinanzasApp</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+            <li><a href="#" data-page="transacciones">Ingresos & Gastos</a></li>
+            <li><a href="#" data-page="presupuesto">Presupuesto</a></li>
+            <li><a href="#" data-page="metas">Metas Financieras</a></li>
+            <li><a href="#" data-page="inversiones">Inversiones</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <div id="page-dashboard" class="page active">
+            <h1>Dashboard</h1>
+            <div class="cards-grid" id="dashboard-cards"></div>
+        </div>
+
+        <div id="page-transacciones" class="page">
+            <div class="page-header">
+                <h1>Ingresos & Gastos</h1>
+                <div class="periodo-selector">
+                    <select id="periodo-anio"></select>
+                    <select id="periodo-mes"></select>
+                    <button id="btn-cerrar-periodo" class="btn btn-warning">Cerrar Periodo</button>
+                </div>
+            </div>
+            <div class="summary-bar" id="summary-bar"></div>
+            <div class="two-cols">
+                <div class="card">
+                    <h2>Nueva Transacción</h2>
+                    <form id="form-transaccion">
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <input type="text" id="t-descripcion" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Monto</label>
+                            <input type="number" id="t-monto" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <div class="tipo-toggle">
+                                <button type="button" class="tipo-btn active" data-value="INGRESO">
+                                    <span class="tipo-icon">↑</span> Ingreso
+                                </button>
+                                <button type="button" class="tipo-btn" data-value="GASTO">
+                                    <span class="tipo-icon">↓</span> Gasto
+                                </button>
+                            </div>
+                            <input type="hidden" id="t-tipo" value="INGRESO">
+                        </div>
+                        <div class="form-group">
+                            <label>Categoría</label>
+                            <select id="t-categoria" required>
+                                <option value="">— Seleccionar —</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Día del mes</label>
+                            <div class="fecha-dia-wrapper">
+                                <span id="fecha-mes-label" class="fecha-mes-label"></span>
+                                <input type="number" id="t-dia" min="1" max="31" placeholder="Día" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Agregar</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Transacciones del Mes</h2>
+                    <div class="filter-tabs">
+                        <button class="tab active" data-filter="todos">Todos</button>
+                        <button class="tab" data-filter="INGRESO">Ingresos</button>
+                        <button class="tab" data-filter="GASTO">Gastos</button>
+                    </div>
+                    <table id="tabla-transacciones">
+                        <thead>
+                            <tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Tipo</th><th>Monto</th><th></th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-presupuesto" class="page">
+            <div class="page-header">
+                <h1>Presupuesto Mensual</h1>
+                <div class="periodo-selector">
+                    <select id="p-anio"></select>
+                    <select id="p-mes"></select>
+                    <button id="btn-cargar-presupuesto" class="btn btn-secondary">Cargar</button>
+                </div>
+            </div>
+            <div class="two-cols">
+                <div class="card">
+                    <h2>Configurar Presupuesto</h2>
+                    <form id="form-presupuesto">
+                        <div class="form-group">
+                            <label>Sueldo del mes</label>
+                            <input type="number" id="p-sueldo" min="0" step="0.01" required>
+                        </div>
+                        <div id="asignaciones-container">
+                            <h3>Asignaciones <button type="button" id="btn-add-asig" class="btn btn-sm">+ Agregar</button></h3>
+                            <div id="asignaciones-list"></div>
+                        </div>
+                        <div class="form-group sueldo-restante">
+                            <span>Restante sin asignar: <strong id="sueldo-restante">$0</strong></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Guardar Presupuesto</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2>Distribución del Sueldo</h2>
+                    <div id="presupuesto-bars"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-metas" class="page">
+            <div class="page-header">
+                <h1>Metas Financieras</h1>
+                <button id="btn-nueva-meta" class="btn btn-primary">+ Nueva Meta</button>
+            </div>
+            <div id="metas-grid" class="cards-grid"></div>
+
+            <div id="modal-meta" class="modal hidden">
+                <div class="modal-content">
+                    <h2 id="modal-meta-title">Nueva Meta</h2>
+                    <form id="form-meta">
+                        <input type="hidden" id="meta-id">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" id="meta-nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <textarea id="meta-descripcion" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Monto Objetivo</label>
+                            <input type="number" id="meta-monto" min="1" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha Límite</label>
+                            <input type="date" id="meta-fecha" required>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                            <button type="button" id="btn-cancelar-meta" class="btn btn-secondary">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-inversiones" class="page">
+            <div class="page-header">
+                <h1>Cartera de Inversiones</h1>
+                <button id="btn-nueva-inversion" class="btn btn-primary">+ Nueva Inversión</button>
+            </div>
+            <div class="two-cols">
+                <div class="card">
+                    <h2>Resumen de Cartera</h2>
+                    <div id="cartera-resumen"></div>
+                    <div id="cartera-bars"></div>
+                </div>
+                <div class="card">
+                    <h2>Posiciones</h2>
+                    <table id="tabla-inversiones">
+                        <thead>
+                            <tr><th>Nombre</th><th>Tipo</th><th>Monto</th><th>% Objetivo</th><th></th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="modal-inversion" class="modal hidden">
+                <div class="modal-content">
+                    <h2 id="modal-inv-title">Nueva Inversión</h2>
+                    <form id="form-inversion">
+                        <input type="hidden" id="inv-id">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" id="inv-nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="inv-tipo">
+                                <option value="ACCIONES">Acciones</option>
+                                <option value="ORO">Oro</option>
+                                <option value="BONOS">Bonos</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Monto Invertido</label>
+                            <input type="number" id="inv-monto" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>% Objetivo en Cartera</label>
+                            <input type="number" id="inv-porcentaje" min="0.01" max="100" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Notas</label>
+                            <textarea id="inv-notas" rows="2"></textarea>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                            <button type="button" id="btn-cancelar-inv" class="btn btn-secondary">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/transacciones.js"></script>
+    <script src="js/presupuesto.js"></script>
+    <script src="js/metas.js"></script>
+    <script src="js/inversiones.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
