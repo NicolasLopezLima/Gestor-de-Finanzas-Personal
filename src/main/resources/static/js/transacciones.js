@@ -1,4 +1,5 @@
 let periodoActual = null;
+let presupuestoMes = null;
 let filtroActivo = 'todos';
 
 // Categorías predefinidas por tipo
@@ -68,12 +69,18 @@ async function cargarPeriodo() {
     actualizarMesLabel();
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
-    try {
-        periodoActual = await api.getPeriodo(anio, mes);
-    } catch {
-        // Periodo aún no existe, lo creará al agregar la primera transacción
-        periodoActual = { anio, mes, cerrado: false, totalIngresos: 0, totalGastos: 0, balance: 0, transacciones: [] };
-    }
+
+    const [periodoRes, presupuestoRes] = await Promise.allSettled([
+        api.getPeriodo(anio, mes),
+        api.getPresupuesto(anio, mes),
+    ]);
+
+    periodoActual = periodoRes.status === 'fulfilled'
+        ? periodoRes.value
+        : { anio, mes, cerrado: false, totalIngresos: 0, totalGastos: 0, balance: 0, transacciones: [] };
+
+    presupuestoMes = presupuestoRes.status === 'fulfilled' ? presupuestoRes.value : null;
+
     renderPeriodo();
 }
 
@@ -83,6 +90,17 @@ function renderPeriodo() {
     document.getElementById('btn-cerrar-periodo').disabled = cerrado;
     document.getElementById('form-transaccion').style.opacity = cerrado ? '.5' : '1';
     document.getElementById('form-transaccion').style.pointerEvents = cerrado ? 'none' : '';
+
+    // Calcular "Disponible": asignaciones de gasto sin meta del presupuesto − gastos reales
+    // Las asignaciones sin meta representan gastos corrientes (no ahorro ni inversión)
+    let disponible = null;
+    let presupuestoGasto = null;
+    if (presupuestoMes && presupuestoMes.asignaciones?.length) {
+        presupuestoGasto = presupuestoMes.asignaciones
+            .filter(a => !a.metaId)
+            .reduce((sum, a) => sum + Number(a.monto), 0);
+        disponible = presupuestoGasto - Number(periodoActual.totalGastos);
+    }
 
     const bar = document.getElementById('summary-bar');
     bar.innerHTML = `
@@ -95,9 +113,9 @@ function renderPeriodo() {
             <div class="s-value text-danger">${fmt(periodoActual.totalGastos)}</div>
         </div>
         <div class="summary-item">
-            <div class="s-label">Balance</div>
-            <div class="s-value" style="color:${periodoActual.balance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                ${fmt(periodoActual.balance)}
+            <div class="s-label">Disponible${presupuestoGasto !== null ? ` <small style="color:var(--text-muted);font-weight:400">de ${fmt(presupuestoGasto)}</small>` : ''}</div>
+            <div class="s-value" style="color:${disponible === null || disponible >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                ${disponible !== null ? fmt(disponible) : fmt(periodoActual.balance)}
             </div>
         </div>
         ${cerrado ? '<div class="summary-item"><div class="s-label" style="color:var(--warning)">⚠ Periodo CERRADO</div></div>' : ''}
