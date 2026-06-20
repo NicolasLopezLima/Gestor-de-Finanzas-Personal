@@ -49,8 +49,8 @@ function fillMesSelect(sel, selected) {
 }
 
 const TIPO_COLORS = {
-    ACCIONES: '#4f46e5',
-    ORO: '#f59e0b',
-    BONOS: '#10b981',
-    OTRO: '#64748b',
+    ACCIONES: '#4038c8',
+    ORO: '#d4a024',
+    BONOS: '#3d7a5c',
+    OTRO: '#8a7a6a',
 };

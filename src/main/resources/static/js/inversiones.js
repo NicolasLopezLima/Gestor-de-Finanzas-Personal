@@ -34,11 +34,12 @@ function renderCartera(resumen) {
     bars.innerHTML = Object.keys(montos).map(tipo => {
         if (montos[tipo] == 0) return '';
         const pct = porcs[tipo] ?? 0;
-        const color = TIPO_COLORS[tipo] || '#64748b';
+        const color = TIPO_COLORS[tipo] || '#8a7a6a';
+        const tipoClass = tipo.toLowerCase();
         return `
         <div class="cartera-tipo-row">
             <div class="cartera-tipo-label">
-                <span style="color:${color};font-weight:600">${tipo}</span>
+                <span class="badge badge-tipo badge-tipo-${tipoClass}">${tipo}</span>
                 <span>${fmt(montos[tipo])} <small style="color:var(--text-muted)">${pct}%</small></span>
             </div>
             <div class="progress-bar-track">
@@ -56,13 +57,13 @@ function renderTablaInversiones() {
     }
     tbody.innerHTML = inversiones.map(inv => `
         <tr>
-            <td>${inv.nombre}</td>
-            <td><span style="color:${TIPO_COLORS[inv.tipo]};font-weight:600">${inv.tipo}</span></td>
-            <td style="font-weight:600">${fmt(inv.montoInvertido)}</td>
-            <td>${inv.porcentajeCartera}%</td>
-            <td>
-                <button class="btn-icon" onclick="abrirModalInv(${inv.id})">✏️</button>
-                <button class="btn-icon" onclick="eliminarInversion(${inv.id})">🗑</button>
+            <td style="font-weight:500">${inv.nombre}</td>
+            <td><span class="badge badge-tipo badge-tipo-${inv.tipo.toLowerCase()}">${inv.tipo}</span></td>
+            <td style="font-weight:700;letter-spacing:-0.02em">${fmt(inv.montoInvertido)}</td>
+            <td style="color:var(--text-muted)">${inv.porcentajeCartera}%</td>
+            <td style="white-space:nowrap">
+                <button class="btn-icon" title="Editar" onclick="abrirModalInv(${inv.id})">✏️</button>
+                <button class="btn-icon" title="Eliminar" onclick="eliminarInversion(${inv.id})">🗑</button>
             </td>
         </tr>`).join('');
 }

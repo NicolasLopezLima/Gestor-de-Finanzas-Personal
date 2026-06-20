@@ -44,12 +44,14 @@ function renderMetas() {
                 </div>
                 ${progressBar(m.porcentajeProgreso, estadoColor[m.estado] || 'var(--primary)')}
             </div>
-            <div class="meta-montos" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <div class="meta-montos" style="margin-top:12px;display:flex;gap:8px;align-items:center">
                 ${m.estado === 'ACTIVA' ? `
                     <button class="btn btn-sm btn-primary" onclick="abrirModalAbono(${m.id})">+ Abonar</button>
                     <button class="btn btn-sm btn-secondary" onclick="abrirModalMeta(${m.id})">Editar</button>
-                ` : ''}
-                <button class="btn btn-sm btn-danger" onclick="eliminarMeta(${m.id})">Eliminar</button>
+                    <button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="eliminarMeta(${m.id})">Eliminar</button>
+                ` : `
+                    <button class="btn btn-sm btn-danger" onclick="eliminarMeta(${m.id})">Eliminar</button>
+                `}
             </div>
         </div>
     `).join('');
