@@ -335,6 +335,114 @@ tr:hover td { background: #f8fafc; }
     font-size: 13px;
 }
 
+/* Presupuesto main card */
+.presupuesto-main-card {
+    padding: 32px;
+}
+
+.presupuesto-empty {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--text-muted);
+}
+
+.presupuesto-empty p { margin-bottom: 16px; font-size: 15px; }
+
+#presupuesto-chart-container {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    flex-wrap: wrap;
+}
+
+/* Pie chart */
+.pie-wrapper {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    flex-shrink: 0;
+}
+
+#pie-chart {
+    width: 260px;
+    height: 260px;
+    transform: rotate(-90deg);
+}
+
+.pie-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.pie-center-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.pie-center-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 2px;
+}
+
+/* Leyenda */
+#pie-leyenda {
+    flex: 1;
+    min-width: 220px;
+}
+
+.leyenda-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.leyenda-item:last-child { border-bottom: none; }
+
+.leyenda-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.leyenda-info { flex: 1; }
+.leyenda-nombre { font-size: 14px; font-weight: 600; }
+.leyenda-meta { font-size: 11px; color: var(--text-muted); }
+
+.leyenda-monto {
+    text-align: right;
+}
+
+.leyenda-monto .l-valor { font-size: 15px; font-weight: 700; }
+.leyenda-monto .l-pct { font-size: 11px; color: var(--text-muted); }
+
+/* Modal presupuesto */
+.modal-presupuesto-content {
+    max-width: 560px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 { margin: 0; }
+
 .asig-fija {
     grid-template-columns: 1fr 110px 1fr;
     background: #f8fafc;

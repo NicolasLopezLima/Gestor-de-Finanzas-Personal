@@ -101,11 +101,34 @@
                     <select id="p-anio"></select>
                     <select id="p-mes"></select>
                     <button id="btn-cargar-presupuesto" class="btn btn-secondary">Cargar</button>
+                    <button id="btn-editar-presupuesto" class="btn btn-primary">✏️ Editar</button>
                 </div>
             </div>
-            <div class="two-cols">
-                <div class="card">
-                    <h2>Configurar Presupuesto</h2>
+
+            <!-- Vista principal: pie chart -->
+            <div id="presupuesto-vista" class="card presupuesto-main-card">
+                <div id="presupuesto-empty" class="presupuesto-empty hidden">
+                    <p>No hay presupuesto para este periodo.</p>
+                </div>
+                <div id="presupuesto-chart-container" style="display:none">
+                    <div class="pie-wrapper">
+                        <svg id="pie-chart" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+                        <div id="pie-center">
+                            <div class="pie-center-label">Sueldo</div>
+                            <div class="pie-center-value" id="pie-sueldo-value"></div>
+                        </div>
+                    </div>
+                    <div id="pie-leyenda"></div>
+                </div>
+            </div>
+
+            <!-- Modal editar presupuesto -->
+            <div id="modal-presupuesto" class="modal hidden">
+                <div class="modal-content modal-presupuesto-content">
+                    <div class="modal-header">
+                        <h2>Configurar Presupuesto</h2>
+                        <button type="button" id="btn-cerrar-presupuesto" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
                     <form id="form-presupuesto">
                         <div class="form-group">
                             <label>Sueldo del mes</label>
@@ -120,12 +143,8 @@
                         <div class="form-group sueldo-restante">
                             <span>Restante sin asignar: <strong id="sueldo-restante">$0</strong></span>
                         </div>
-                        <button type="submit" class="btn btn-primary">Guardar Presupuesto</button>
+                        <button type="submit" class="btn btn-primary" style="width:100%">Guardar Presupuesto</button>
                     </form>
-                </div>
-                <div class="card">
-                    <h2>Distribución del Sueldo</h2>
-                    <div id="presupuesto-bars"></div>
                 </div>
             </div>
         </div>
