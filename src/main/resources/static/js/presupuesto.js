@@ -36,12 +36,12 @@ async function cargarPresupuesto() {
     const mes = +document.getElementById('p-mes').value;
     try {
         presupuestoActual = await api.getPresupuesto(anio, mes);
-        document.getElementById('presupuesto-empty').classList.add('hidden');
+        document.getElementById('presupuesto-empty').style.display = 'none';
         document.getElementById('presupuesto-chart-container').style.display = '';
         renderPieChart();
     } catch {
         presupuestoActual = null;
-        document.getElementById('presupuesto-empty').classList.remove('hidden');
+        document.getElementById('presupuesto-empty').style.display = '';
         document.getElementById('presupuesto-chart-container').style.display = 'none';
     }
 }
@@ -235,7 +235,7 @@ async function guardarPresupuesto(e) {
     try {
         presupuestoActual = await api.guardarPresupuesto({ anio, mes, sueldo, asignaciones });
         cerrarModalPresupuesto();
-        document.getElementById('presupuesto-empty').classList.add('hidden');
+        document.getElementById('presupuesto-empty').style.display = 'none';
         document.getElementById('presupuesto-chart-container').style.display = '';
         renderPieChart();
         showToast('Presupuesto guardado');

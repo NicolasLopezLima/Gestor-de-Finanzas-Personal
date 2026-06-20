@@ -490,6 +490,7 @@ tr:hover td { background: #f8fafc; }
 }
 
 .modal.hidden { display: none; }
+.hidden { display: none; }
 
 .modal-content {
     background: #fff;

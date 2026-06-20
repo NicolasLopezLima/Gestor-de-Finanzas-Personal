@@ -107,7 +107,7 @@
 
             <!-- Vista principal: pie chart -->
             <div id="presupuesto-vista" class="card presupuesto-main-card">
-                <div id="presupuesto-empty" class="presupuesto-empty hidden">
+                <div id="presupuesto-empty" class="presupuesto-empty" style="display:none">
                     <p>No hay presupuesto para este periodo.</p>
                 </div>
                 <div id="presupuesto-chart-container" style="display:none">
@@ -180,6 +180,24 @@
                         <div class="modal-actions">
                             <button type="submit" class="btn btn-primary">Guardar</button>
                             <button type="button" id="btn-cancelar-meta" class="btn btn-secondary">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="modal-abono" class="modal hidden">
+                <div class="modal-content" style="max-width:380px">
+                    <h2>Abonar a Meta</h2>
+                    <p id="modal-abono-nombre" style="color:var(--text-muted);margin-bottom:12px"></p>
+                    <form id="form-abono">
+                        <input type="hidden" id="abono-meta-id">
+                        <div class="form-group">
+                            <label>Monto a abonar</label>
+                            <input type="number" id="abono-monto" min="0.01" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Abonar</button>
+                            <button type="button" id="btn-cancelar-abono" class="btn btn-secondary">Cancelar</button>
                         </div>
                     </form>
                 </div>

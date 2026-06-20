@@ -4,6 +4,8 @@ async function initMetas() {
     document.getElementById('btn-nueva-meta').addEventListener('click', () => abrirModalMeta());
     document.getElementById('btn-cancelar-meta').addEventListener('click', cerrarModalMeta);
     document.getElementById('form-meta').addEventListener('submit', guardarMeta);
+    document.getElementById('btn-cancelar-abono').addEventListener('click', cerrarModalAbono);
+    document.getElementById('form-abono').addEventListener('submit', onAbonarMeta);
     await cargarMetas();
 }
 
@@ -44,7 +46,7 @@ function renderMetas() {
             </div>
             <div class="meta-montos" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
                 ${m.estado === 'ACTIVA' ? `
-                    <button class="btn btn-sm btn-primary" onclick="abonarMeta(${m.id})">+ Abonar</button>
+                    <button class="btn btn-sm btn-primary" onclick="abrirModalAbono(${m.id})">+ Abonar</button>
                     <button class="btn btn-sm btn-secondary" onclick="abrirModalMeta(${m.id})">Editar</button>
                 ` : ''}
                 <button class="btn btn-sm btn-danger" onclick="eliminarMeta(${m.id})">Eliminar</button>
@@ -112,11 +114,26 @@ async function eliminarMeta(id) {
     }
 }
 
-async function abonarMeta(id) {
-    const monto = prompt('¿Cuánto deseas abonar a esta meta?');
-    if (!monto || isNaN(+monto) || +monto <= 0) return;
+function abrirModalAbono(id) {
+    const m = metas.find(x => x.id === id);
+    document.getElementById('abono-meta-id').value = id;
+    document.getElementById('abono-monto').value = '';
+    document.getElementById('modal-abono-nombre').textContent = m?.nombre || '';
+    document.getElementById('modal-abono').classList.remove('hidden');
+    document.getElementById('abono-monto').focus();
+}
+
+function cerrarModalAbono() {
+    document.getElementById('modal-abono').classList.add('hidden');
+}
+
+async function onAbonarMeta(e) {
+    e.preventDefault();
+    const id = +document.getElementById('abono-meta-id').value;
+    const monto = +document.getElementById('abono-monto').value;
     try {
-        await api.abonarMeta(id, +monto);
+        await api.abonarMeta(id, monto);
+        cerrarModalAbono();
         await cargarMetas();
         showToast('Abono registrado');
     } catch (err) {
