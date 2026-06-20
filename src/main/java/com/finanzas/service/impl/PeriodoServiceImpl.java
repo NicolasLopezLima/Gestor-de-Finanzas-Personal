@@ -5,8 +5,10 @@ import com.finanzas.dto.TransaccionDTO;
 import com.finanzas.model.PeriodoMensual;
 import com.finanzas.model.TipoTransaccion;
 import com.finanzas.model.Transaccion;
+import com.finanzas.model.Usuario;
 import com.finanzas.repository.PeriodoMensualRepository;
 import com.finanzas.repository.TransaccionRepository;
+import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.PeriodoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,41 +24,34 @@ public class PeriodoServiceImpl implements PeriodoService {
 
     private final PeriodoMensualRepository periodoRepo;
     private final TransaccionRepository transaccionRepo;
+    private final UsuarioRepository usuarioRepo;
 
-    public PeriodoServiceImpl(PeriodoMensualRepository periodoRepo, TransaccionRepository transaccionRepo) {
+    public PeriodoServiceImpl(PeriodoMensualRepository periodoRepo,
+                              TransaccionRepository transaccionRepo,
+                              UsuarioRepository usuarioRepo) {
         this.periodoRepo = periodoRepo;
         this.transaccionRepo = transaccionRepo;
+        this.usuarioRepo = usuarioRepo;
     }
 
     @Override
-    public PeriodoResumenDTO obtenerOCrearPeriodoActual() {
-        LocalDate hoy = LocalDate.now();
-        PeriodoMensual periodo = periodoRepo.findByAnioAndMes(hoy.getYear(), hoy.getMonthValue())
-                .orElseGet(() -> {
-                    PeriodoMensual nuevo = new PeriodoMensual(hoy.getYear(), hoy.getMonthValue());
-                    return periodoRepo.save(nuevo);
-                });
-        return toResumenDTO(periodo);
-    }
-
-    @Override
-    public PeriodoResumenDTO obtenerPeriodo(int anio, int mes) {
-        PeriodoMensual periodo = periodoRepo.findByAnioAndMes(anio, mes)
+    public PeriodoResumenDTO obtenerPeriodo(int anio, int mes, Long usuarioId) {
+        PeriodoMensual periodo = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Periodo no encontrado: " + anio + "/" + mes));
         return toResumenDTO(periodo);
     }
 
     @Override
-    public List<PeriodoResumenDTO> listarTodos() {
-        return periodoRepo.findAll().stream()
-                .map(this::toResumenDTO)
-                .collect(Collectors.toList());
-    }
+    public TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto, Long usuarioId) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
 
-    @Override
-    public TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto) {
-        PeriodoMensual periodo = periodoRepo.findByAnioAndMes(anio, mes)
-                .orElseGet(() -> periodoRepo.save(new PeriodoMensual(anio, mes)));
+        PeriodoMensual periodo = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
+                .orElseGet(() -> {
+                    PeriodoMensual nuevo = new PeriodoMensual(anio, mes);
+                    nuevo.setUsuario(usuario);
+                    return periodoRepo.save(nuevo);
+                });
 
         if (periodo.isCerrado()) {
             throw new IllegalStateException("El periodo está cerrado y no acepta nuevas transacciones.");
@@ -70,14 +65,16 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setFecha(dto.getFecha() != null ? dto.getFecha() : LocalDate.now());
         t.setPeriodo(periodo);
 
-        Transaccion guardada = transaccionRepo.save(t);
-        return toDTO(guardada);
+        return toDTO(transaccionRepo.save(t));
     }
 
     @Override
-    public void eliminarTransaccion(Long transaccionId) {
+    public void eliminarTransaccion(Long transaccionId, Long usuarioId) {
         Transaccion t = transaccionRepo.findById(transaccionId)
                 .orElseThrow(() -> new IllegalArgumentException("Transaccion no encontrada: " + transaccionId));
+        if (!t.getPeriodo().getUsuario().getId().equals(usuarioId)) {
+            throw new IllegalStateException("No autorizado");
+        }
         if (t.getPeriodo().isCerrado()) {
             throw new IllegalStateException("No se puede eliminar una transaccion de un periodo cerrado.");
         }
@@ -85,8 +82,8 @@ public class PeriodoServiceImpl implements PeriodoService {
     }
 
     @Override
-    public PeriodoResumenDTO cerrarPeriodo(int anio, int mes) {
-        PeriodoMensual periodo = periodoRepo.findByAnioAndMes(anio, mes)
+    public PeriodoResumenDTO cerrarPeriodo(int anio, int mes, Long usuarioId) {
+        PeriodoMensual periodo = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Periodo no encontrado: " + anio + "/" + mes));
         periodo.setCerrado(true);
         return toResumenDTO(periodoRepo.save(periodo));

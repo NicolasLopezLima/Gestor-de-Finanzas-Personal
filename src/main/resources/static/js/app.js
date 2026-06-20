@@ -32,4 +32,17 @@ document.querySelectorAll('.nav-links a').forEach(a => {
     });
 });
 
+// Cargar nombre del usuario logueado
+fetch('/api/auth/me')
+    .then(r => {
+        if (r.status === 401 || r.status === 403) { window.location.href = '/login'; return null; }
+        return r.json();
+    })
+    .then(u => {
+        if (!u) return;
+        const el = document.getElementById('sidebar-username');
+        if (el) el.textContent = u.nombre?.split(' ')[0] ?? u.email;
+    })
+    .catch(() => {});
+
 navigateTo('dashboard');

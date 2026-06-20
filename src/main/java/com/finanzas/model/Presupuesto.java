@@ -22,6 +22,10 @@ public class Presupuesto {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal sueldo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = true)
+    private Usuario usuario;
+
     @OneToMany(mappedBy = "presupuesto", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AsignacionPresupuesto> asignaciones = new ArrayList<>();
 
@@ -35,4 +39,6 @@ public class Presupuesto {
     public BigDecimal getSueldo() { return sueldo; }
     public void setSueldo(BigDecimal sueldo) { this.sueldo = sueldo; }
     public List<AsignacionPresupuesto> getAsignaciones() { return asignaciones; }
+    public Usuario getUsuario() { return usuario; }
+    public void setUsuario(Usuario usuario) { this.usuario = usuario; }
 }

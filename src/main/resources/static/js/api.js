@@ -7,6 +7,10 @@ async function request(method, url, body) {
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
     const res = await fetch(BASE + url, opts);
+    if (res.status === 401 || res.status === 403) {
+        window.location.href = '/login';
+        throw new Error('No autenticado');
+    }
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Error inesperado' }));
         throw new Error(err.error || 'Error en la petición');

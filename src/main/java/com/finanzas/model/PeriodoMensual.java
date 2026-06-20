@@ -22,6 +22,10 @@ public class PeriodoMensual {
     @Column(nullable = false)
     private boolean cerrado = false;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = true)
+    private Usuario usuario;
+
     @OneToMany(mappedBy = "periodo", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Transaccion> transacciones = new ArrayList<>();
 
@@ -40,4 +44,6 @@ public class PeriodoMensual {
     public boolean isCerrado() { return cerrado; }
     public void setCerrado(boolean cerrado) { this.cerrado = cerrado; }
     public List<Transaccion> getTransacciones() { return transacciones; }
+    public Usuario getUsuario() { return usuario; }
+    public void setUsuario(Usuario usuario) { this.usuario = usuario; }
 }
