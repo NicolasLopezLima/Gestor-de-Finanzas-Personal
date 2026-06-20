@@ -1,23 +1,23 @@
 :root {
-    --primary: #4f46e5;
-    --primary-dark: #3730a3;
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-    --bg: #f1f5f9;
-    --sidebar-bg: #1e1b4b;
+    --primary: #e05c3a;
+    --primary-dark: #c4432a;
+    --success: #3d7a5c;
+    --danger: #c0392b;
+    --warning: #d4a024;
+    --bg: #fdf6f0;
+    --sidebar-bg: #2d2416;
     --card-bg: #ffffff;
-    --text: #1e293b;
-    --text-muted: #64748b;
-    --border: #e2e8f0;
-    --radius: 12px;
-    --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+    --text: #2d2416;
+    --text-muted: #8a7a6a;
+    --border: #e8d9cc;
+    --radius: 20px;
+    --shadow: 0 1px 4px rgba(45,36,22,.08), 0 2px 8px rgba(45,36,22,.04);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
     display: flex;
@@ -165,14 +165,14 @@ h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
 .form-group textarea:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+    box-shadow: 0 0 0 3px rgba(224,92,58,.15);
 }
 
 /* Buttons */
 .btn {
     padding: 9px 18px;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -196,11 +196,11 @@ table {
     font-size: 13px;
 }
 
-thead tr { background: var(--bg); }
+thead tr { background: #fdf0e8; }
 th { text-align: left; padding: 10px 12px; font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f8fafc; }
+tr:hover td { background: #fdf0e8; }
 
 .badge {
     display: inline-block;
@@ -210,11 +210,11 @@ tr:hover td { background: #f8fafc; }
     font-weight: 600;
 }
 
-.badge-ingreso { background: #d1fae5; color: #065f46; }
-.badge-gasto { background: #fee2e2; color: #991b1b; }
-.badge-activa { background: #dbeafe; color: #1e40af; }
-.badge-completada { background: #d1fae5; color: #065f46; }
-.badge-vencida { background: #fee2e2; color: #991b1b; }
+.badge-ingreso { background: #d4ede0; color: #2d6349; }
+.badge-gasto { background: #fde8e2; color: #a8361e; }
+.badge-activa { background: #fde8e2; color: #a8361e; }
+.badge-completada { background: #d4ede0; color: #2d6349; }
+.badge-vencida { background: #f5e0db; color: #7a2a1e; }
 
 /* Summary bar */
 .summary-bar {
@@ -263,8 +263,8 @@ tr:hover td { background: #f8fafc; }
 }
 
 .progress-bar-track {
-    height: 8px;
-    background: var(--bg);
+    height: 12px;
+    background: var(--border);
     border-radius: 99px;
     overflow: hidden;
 }
@@ -445,9 +445,9 @@ tr:hover td { background: #f8fafc; }
 
 .asig-fija {
     grid-template-columns: 1fr 110px 1fr;
-    background: #f8fafc;
+    background: #fdf6f0;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 10px 12px;
     margin-bottom: 8px;
 }
@@ -471,9 +471,9 @@ tr:hover td { background: #f8fafc; }
 }
 
 .sueldo-restante {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
+    background: #fdf6f0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
     padding: 10px 14px;
     font-size: 14px;
 }
@@ -575,13 +575,13 @@ tr:hover td { background: #f8fafc; }
 .tipo-btn:first-child { border-right: 1px solid var(--border); }
 
 .tipo-btn.active[data-value="INGRESO"] {
-    background: #d1fae5;
-    color: #065f46;
+    background: #d4ede0;
+    color: #2d6349;
 }
 
 .tipo-btn.active[data-value="GASTO"] {
-    background: #fee2e2;
-    color: #991b1b;
+    background: #fde8e2;
+    color: #a8361e;
 }
 
 .tipo-icon {
@@ -611,15 +611,44 @@ tr:hover td { background: #f8fafc; }
     width: 60px;
     padding: 4px 8px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     text-align: center;
     flex-shrink: 0;
 }
 
+/* Dashboard welcome */
+.dashboard-welcome {
+    margin-bottom: 28px;
+}
+
+.welcome-greeting {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.welcome-period {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+/* Hero stat card — balance destacado */
+.stat-card-hero {
+    border-left: 4px solid var(--primary);
+    background: linear-gradient(135deg, #fff 60%, #fdf0e8 100%);
+}
+
+.stat-card-hero .value {
+    font-size: 40px !important;
+}
+
+.stat-card .value.neutral { color: var(--text); }
+
 .fecha-dia-wrapper input[type="number"]:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+    box-shadow: 0 0 0 3px rgba(224,92,58,.15);
 }

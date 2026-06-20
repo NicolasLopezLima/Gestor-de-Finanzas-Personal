@@ -42,7 +42,7 @@ function renderMetas() {
                     <span>${fmt(m.montoAcumulado)}</span>
                     <span>${m.porcentajeProgreso}% de ${fmt(m.montoObjetivo)}</span>
                 </div>
-                ${progressBar(m.porcentajeProgreso, estadoColor[m.estado] || '#4f46e5')}
+                ${progressBar(m.porcentajeProgreso, estadoColor[m.estado] || 'var(--primary)')}
             </div>
             <div class="meta-montos" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
                 ${m.estado === 'ACTIVA' ? `

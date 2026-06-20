@@ -1,6 +1,18 @@
 async function initDashboard() {
     const pageEl = document.getElementById('page-dashboard');
-    pageEl.innerHTML = '<h1>Dashboard</h1><div class="cards-grid" id="dashboard-cards"><p style="color:var(--text-muted)">Cargando...</p></div>';
+
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const now = new Date();
+    const mesNombre = MESES[now.getMonth()];
+    const anio = now.getFullYear();
+
+    pageEl.innerHTML = `
+        <div class="dashboard-welcome">
+            <div class="welcome-greeting">Buenos días, Nicolas</div>
+            <div class="welcome-period">${mesNombre} ${anio}</div>
+        </div>
+        <div class="cards-grid" id="dashboard-cards"><p style="color:var(--text-muted)">Cargando...</p></div>
+    `;
 
     try {
         const [periodo, metas, resumen] = await Promise.all([
@@ -14,6 +26,12 @@ async function initDashboard() {
 
         const cards = document.getElementById('dashboard-cards');
         cards.innerHTML = `
+            <div class="stat-card stat-card-hero">
+                <div class="label">Balance mensual</div>
+                <div class="value" style="color:${periodo.balance >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                    ${fmt(periodo.balance)}
+                </div>
+            </div>
             <div class="stat-card">
                 <div class="label">Ingresos del mes</div>
                 <div class="value income">${fmt(periodo.totalIngresos)}</div>
@@ -21,12 +39,6 @@ async function initDashboard() {
             <div class="stat-card">
                 <div class="label">Gastos del mes</div>
                 <div class="value expense">${fmt(periodo.totalGastos)}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">Balance mensual</div>
-                <div class="value" style="color:${periodo.balance >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                    ${fmt(periodo.balance)}
-                </div>
             </div>
             <div class="stat-card">
                 <div class="label">Total invertido</div>
@@ -56,7 +68,7 @@ async function initDashboard() {
                                 <span>${fmt(m.montoAcumulado)}</span>
                                 <span>${m.porcentajeProgreso}%</span>
                             </div>
-                            ${progressBar(m.porcentajeProgreso, '#4f46e5')}
+                            ${progressBar(m.porcentajeProgreso, 'var(--primary)')}
                         </div>`).join('')}
                 </div>`;
             pageEl.appendChild(section);
