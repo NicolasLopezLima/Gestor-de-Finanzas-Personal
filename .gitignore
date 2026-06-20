@@ -1,9 +1,11 @@
 # IntelliJ
 .idea/
 *.iml
+out/
 
 # NetBeans
 nbproject/private/
 build/
 dist/
 /target/
+.gstack/
