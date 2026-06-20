@@ -41,6 +41,9 @@ public class PresupuestoServiceImpl implements PresupuestoService {
                 AsignacionPresupuesto asig = new AsignacionPresupuesto();
                 asig.setCategoria(a.getCategoria());
                 asig.setMonto(a.getMonto());
+                asig.setTipo(a.getTipo() != null
+                        ? com.finanzas.model.TipoAsignacion.valueOf(a.getTipo())
+                        : com.finanzas.model.TipoAsignacion.PERSONALIZADO);
                 asig.setPresupuesto(presupuesto);
                 if (a.getMetaId() != null) {
                     MetaFinanciera meta = metaRepo.findById(a.getMetaId()).orElse(null);
@@ -78,6 +81,7 @@ public class PresupuestoServiceImpl implements PresupuestoService {
             adto.setId(a.getId());
             adto.setCategoria(a.getCategoria());
             adto.setMonto(a.getMonto());
+            adto.setTipo(a.getTipo() != null ? a.getTipo().name() : "PERSONALIZADO");
             if (a.getMeta() != null) {
                 adto.setMetaId(a.getMeta().getId());
                 adto.setMetaNombre(a.getMeta().getNombre());

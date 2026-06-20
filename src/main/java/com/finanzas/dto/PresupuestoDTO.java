@@ -36,6 +36,7 @@ public class PresupuestoDTO {
         private Long id;
         private String categoria;
         private BigDecimal monto;
+        private String tipo;
         private Long metaId;
         private String metaNombre;
 
@@ -43,6 +44,8 @@ public class PresupuestoDTO {
         public void setId(Long id) { this.id = id; }
         public String getCategoria() { return categoria; }
         public void setCategoria(String categoria) { this.categoria = categoria; }
+        public String getTipo() { return tipo; }
+        public void setTipo(String tipo) { this.tipo = tipo; }
         public BigDecimal getMonto() { return monto; }
         public void setMonto(BigDecimal monto) { this.monto = monto; }
         public Long getMetaId() { return metaId; }

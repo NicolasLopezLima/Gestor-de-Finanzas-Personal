@@ -14,6 +14,10 @@ public class AsignacionPresupuesto {
     @Column(nullable = false)
     private String categoria;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TipoAsignacion tipo = TipoAsignacion.PERSONALIZADO;
+
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal monto;
 
@@ -30,6 +34,8 @@ public class AsignacionPresupuesto {
     public Long getId() { return id; }
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }
+    public TipoAsignacion getTipo() { return tipo; }
+    public void setTipo(TipoAsignacion tipo) { this.tipo = tipo; }
     public BigDecimal getMonto() { return monto; }
     public void setMonto(BigDecimal monto) { this.monto = monto; }
     public Presupuesto getPresupuesto() { return presupuesto; }

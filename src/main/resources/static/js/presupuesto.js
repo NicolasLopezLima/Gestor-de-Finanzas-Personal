@@ -1,18 +1,26 @@
 let presupuestoActual = null;
 let metasDisponibles = [];
 
+// Categorías fijas predefinidas — siempre presentes, no se pueden eliminar
+const TIPOS_FIJOS = [
+    { tipo: 'GASTO',    label: 'Gasto',    icon: '🛒', descripcion: 'Gasto diario disponible' },
+    { tipo: 'COLCHON',  label: 'Colchón',  icon: '🛡', descripcion: 'Fondo de emergencia' },
+    { tipo: 'INVERSION',label: 'Inversión',icon: '📈', descripcion: 'Inversiones' },
+];
+
 async function initPresupuesto() {
     fillAnioSelect(document.getElementById('p-anio'));
     fillMesSelect(document.getElementById('p-mes'));
 
     document.getElementById('btn-cargar-presupuesto').addEventListener('click', cargarPresupuesto);
     document.getElementById('form-presupuesto').addEventListener('submit', guardarPresupuesto);
-    document.getElementById('btn-add-asig').addEventListener('click', agregarFilaAsignacion);
+    document.getElementById('btn-add-asig').addEventListener('click', () => agregarFilaPersonalizada());
     document.getElementById('p-sueldo').addEventListener('input', actualizarRestante);
 
     metasDisponibles = await api.listarMetas().catch(() => []);
     metasDisponibles = metasDisponibles.filter(m => m.estado === 'ACTIVA');
 
+    renderFilasFijas(null);
     await cargarPresupuesto();
 }
 
@@ -21,37 +29,71 @@ async function cargarPresupuesto() {
     const mes = +document.getElementById('p-mes').value;
     try {
         presupuestoActual = await api.getPresupuesto(anio, mes);
-        renderPresupuesto();
+        if (presupuestoActual.sueldo) {
+            document.getElementById('p-sueldo').value = presupuestoActual.sueldo;
+        }
+        renderFilasFijas(presupuestoActual.asignaciones);
+        renderFilasPersonalizadas(presupuestoActual.asignaciones);
+        actualizarRestante();
+        renderBars();
     } catch {
         presupuestoActual = null;
-        document.getElementById('asignaciones-list').innerHTML = '';
-        document.getElementById('presupuesto-bars').innerHTML = '<p style="color:var(--text-muted);font-size:13px">Sin presupuesto para este periodo.</p>';
+        renderFilasFijas(null);
+        document.getElementById('asignaciones-custom-list').innerHTML = '';
+        document.getElementById('presupuesto-bars').innerHTML =
+            '<p style="color:var(--text-muted);font-size:13px">Sin presupuesto para este periodo.</p>';
+        actualizarRestante();
     }
 }
 
-function renderPresupuesto() {
-    if (!presupuestoActual) return;
-    document.getElementById('p-sueldo').value = presupuestoActual.sueldo;
+function renderFilasFijas(asignaciones) {
+    const container = document.getElementById('asignaciones-fijas');
+    container.innerHTML = TIPOS_FIJOS.map(tf => {
+        const existente = asignaciones?.find(a => a.tipo === tf.tipo);
+        const metaOptions = metasDisponibles.map(m =>
+            `<option value="${m.id}" ${existente?.metaId == m.id ? 'selected' : ''}>${m.nombre}</option>`
+        ).join('');
+        return `
+        <div class="asig-row asig-fija" data-tipo="${tf.tipo}">
+            <div class="asig-fija-label">
+                <span class="asig-icon">${tf.icon}</span>
+                <span class="asig-nombre">${tf.label}</span>
+                <small class="asig-desc">${tf.descripcion}</small>
+            </div>
+            <input type="number" placeholder="Monto" class="asig-monto" min="0" step="0.01"
+                   value="${existente?.monto || ''}">
+            <select class="asig-meta">
+                <option value="">Sin meta</option>
+                ${metaOptions}
+            </select>
+        </div>`;
+    }).join('');
 
-    const list = document.getElementById('asignaciones-list');
-    list.innerHTML = '';
-    (presupuestoActual.asignaciones || []).forEach(a => agregarFilaAsignacion(null, a));
-    actualizarRestante();
-    renderBars();
+    container.querySelectorAll('.asig-monto').forEach(el =>
+        el.addEventListener('input', actualizarRestante)
+    );
 }
 
-function agregarFilaAsignacion(e, data) {
-    const list = document.getElementById('asignaciones-list');
+function renderFilasPersonalizadas(asignaciones) {
+    const list = document.getElementById('asignaciones-custom-list');
+    list.innerHTML = '';
+    const personalizadas = asignaciones?.filter(a => a.tipo === 'PERSONALIZADO') || [];
+    personalizadas.forEach(a => agregarFilaPersonalizada(a));
+}
+
+function agregarFilaPersonalizada(data) {
+    const list = document.getElementById('asignaciones-custom-list');
     const row = document.createElement('div');
     row.className = 'asig-row';
+    row.dataset.tipo = 'PERSONALIZADO';
 
     const metaOptions = metasDisponibles.map(m =>
         `<option value="${m.id}" ${data?.metaId == m.id ? 'selected' : ''}>${m.nombre}</option>`
     ).join('');
 
     row.innerHTML = `
-        <input type="text" placeholder="Categoría" class="asig-cat" value="${data?.categoria || ''}" required>
-        <input type="number" placeholder="Monto" class="asig-monto" min="0" step="0.01" value="${data?.monto || ''}" required>
+        <input type="text" placeholder="Nombre" class="asig-cat" value="${data?.categoria || ''}" required>
+        <input type="number" placeholder="Monto" class="asig-monto" min="0" step="0.01" value="${data?.monto || ''}">
         <select class="asig-meta">
             <option value="">Sin meta</option>
             ${metaOptions}
@@ -75,19 +117,23 @@ function actualizarRestante() {
 
 function renderBars() {
     const bars = document.getElementById('presupuesto-bars');
-    if (!presupuestoActual || !presupuestoActual.asignaciones?.length) {
-        bars.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Agrega asignaciones para ver la distribución.</p>';
+    if (!presupuestoActual?.asignaciones?.length) {
+        bars.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Guardá el presupuesto para ver la distribución.</p>';
         return;
     }
     const sueldo = presupuestoActual.sueldo;
-    const colors = ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
-    bars.innerHTML = presupuestoActual.asignaciones.map((a, i) => {
+    const colorMap = { GASTO: '#4f46e5', COLCHON: '#10b981', INVERSION: '#f59e0b' };
+    const colors = ['#8b5cf6','#06b6d4','#ef4444','#ec4899'];
+    let customIdx = 0;
+
+    bars.innerHTML = presupuestoActual.asignaciones.map(a => {
         const pct = sueldo > 0 ? Math.min((a.monto / sueldo) * 100, 100).toFixed(1) : 0;
-        const color = colors[i % colors.length];
+        const color = colorMap[a.tipo] || colors[customIdx++ % colors.length];
+        const metaTag = a.metaNombre ? ` <small style="color:var(--text-muted)">(Meta: ${a.metaNombre})</small>` : '';
         return `
         <div class="cartera-tipo-row">
             <div class="cartera-tipo-label">
-                <span>${a.categoria}${a.metaNombre ? ` <small style="color:var(--text-muted)">(Meta: ${a.metaNombre})</small>` : ''}</span>
+                <span>${a.categoria}${metaTag}</span>
                 <span style="font-weight:600">${fmt(a.monto)} <small style="color:var(--text-muted)">${pct}%</small></span>
             </div>
             <div class="progress-bar-track">
@@ -103,11 +149,29 @@ async function guardarPresupuesto(e) {
     const mes = +document.getElementById('p-mes').value;
     const sueldo = +document.getElementById('p-sueldo').value;
 
-    const asignaciones = [...document.querySelectorAll('.asig-row')].map(row => ({
-        categoria: row.querySelector('.asig-cat').value,
-        monto: +row.querySelector('.asig-monto').value,
-        metaId: row.querySelector('.asig-meta').value || null,
-    }));
+    // Filas fijas
+    const asignaciones = [];
+    document.querySelectorAll('.asig-fija').forEach(row => {
+        const monto = +row.querySelector('.asig-monto').value || 0;
+        const tipo = row.dataset.tipo;
+        const tf = TIPOS_FIJOS.find(t => t.tipo === tipo);
+        asignaciones.push({
+            categoria: tf.label,
+            tipo,
+            monto,
+            metaId: row.querySelector('.asig-meta').value || null,
+        });
+    });
+
+    // Filas personalizadas
+    document.querySelectorAll('#asignaciones-custom-list .asig-row').forEach(row => {
+        asignaciones.push({
+            categoria: row.querySelector('.asig-cat').value,
+            tipo: 'PERSONALIZADO',
+            monto: +row.querySelector('.asig-monto').value || 0,
+            metaId: row.querySelector('.asig-meta').value || null,
+        });
+    });
 
     try {
         presupuestoActual = await api.guardarPresupuesto({ anio, mes, sueldo, asignaciones });

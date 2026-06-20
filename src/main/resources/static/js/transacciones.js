@@ -91,16 +91,17 @@ function renderPeriodo() {
     document.getElementById('form-transaccion').style.opacity = cerrado ? '.5' : '1';
     document.getElementById('form-transaccion').style.pointerEvents = cerrado ? 'none' : '';
 
-    // Calcular "Disponible": asignaciones de gasto sin meta del presupuesto − gastos reales
-    // Las asignaciones sin meta representan gastos corrientes (no ahorro ni inversión)
-    let disponible = null;
-    let presupuestoGasto = null;
-    if (presupuestoMes && presupuestoMes.asignaciones?.length) {
-        presupuestoGasto = presupuestoMes.asignaciones
-            .filter(a => !a.metaId)
-            .reduce((sum, a) => sum + Number(a.monto), 0);
-        disponible = presupuestoGasto - Number(periodoActual.totalGastos);
-    }
+    // La asignación de tipo GASTO es siempre la base del disponible
+    const gastoPresupuestado = presupuestoMes?.asignaciones
+        ?.filter(a => a.tipo === 'GASTO')
+        .reduce((sum, a) => sum + Number(a.monto), 0) ?? 0;
+
+    // Disponible = gasto presupuestado + ingresos extra registrados - gastos reales
+    const disponible = gastoPresupuestado
+        + Number(periodoActual.totalIngresos)
+        - Number(periodoActual.totalGastos);
+
+    const tienePresupuesto = presupuestoMes !== null;
 
     const bar = document.getElementById('summary-bar');
     bar.innerHTML = `
@@ -113,9 +114,9 @@ function renderPeriodo() {
             <div class="s-value text-danger">${fmt(periodoActual.totalGastos)}</div>
         </div>
         <div class="summary-item">
-            <div class="s-label">Disponible${presupuestoGasto !== null ? ` <small style="color:var(--text-muted);font-weight:400">de ${fmt(presupuestoGasto)}</small>` : ''}</div>
-            <div class="s-value" style="color:${disponible === null || disponible >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                ${disponible !== null ? fmt(disponible) : fmt(periodoActual.balance)}
+            <div class="s-label">Disponible${tienePresupuesto ? ` <small style="color:var(--text-muted);font-weight:400">base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
+            <div class="s-value" style="color:${disponible >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                ${fmt(disponible)}
             </div>
         </div>
         ${cerrado ? '<div class="summary-item"><div class="s-label" style="color:var(--warning)">⚠ Periodo CERRADO</div></div>' : ''}

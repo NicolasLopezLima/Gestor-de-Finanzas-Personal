@@ -324,11 +324,42 @@ tr:hover td { background: #f8fafc; }
     margin-bottom: 8px;
 }
 
+.asig-row {
+    grid-template-columns: 1fr 110px 1fr auto auto;
+}
+
 .asig-row input, .asig-row select {
     padding: 7px 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 13px;
+}
+
+.asig-fija {
+    grid-template-columns: 1fr 110px 1fr;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.asig-fija-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.asig-icon { font-size: 16px; }
+
+.asig-nombre {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.asig-desc {
+    color: var(--text-muted);
+    font-size: 11px;
 }
 
 .sueldo-restante {
