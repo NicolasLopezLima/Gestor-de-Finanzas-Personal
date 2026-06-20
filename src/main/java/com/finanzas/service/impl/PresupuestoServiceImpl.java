@@ -4,15 +4,16 @@ import com.finanzas.dto.PresupuestoDTO;
 import com.finanzas.model.AsignacionPresupuesto;
 import com.finanzas.model.MetaFinanciera;
 import com.finanzas.model.Presupuesto;
+import com.finanzas.model.Usuario;
 import com.finanzas.repository.MetaFinancieraRepository;
 import com.finanzas.repository.PresupuestoRepository;
+import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.PresupuestoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -20,20 +21,28 @@ public class PresupuestoServiceImpl implements PresupuestoService {
 
     private final PresupuestoRepository presupuestoRepo;
     private final MetaFinancieraRepository metaRepo;
+    private final UsuarioRepository usuarioRepo;
 
-    public PresupuestoServiceImpl(PresupuestoRepository presupuestoRepo, MetaFinancieraRepository metaRepo) {
+    public PresupuestoServiceImpl(PresupuestoRepository presupuestoRepo,
+                                   MetaFinancieraRepository metaRepo,
+                                   UsuarioRepository usuarioRepo) {
         this.presupuestoRepo = presupuestoRepo;
         this.metaRepo = metaRepo;
+        this.usuarioRepo = usuarioRepo;
     }
 
     @Override
-    public PresupuestoDTO guardarPresupuesto(PresupuestoDTO dto) {
-        Presupuesto presupuesto = presupuestoRepo.findByAnioAndMes(dto.getAnio(), dto.getMes())
+    public PresupuestoDTO guardarPresupuesto(PresupuestoDTO dto, Long usuarioId) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
+
+        Presupuesto presupuesto = presupuestoRepo.findByAnioAndMesAndUsuarioId(dto.getAnio(), dto.getMes(), usuarioId)
                 .orElse(new Presupuesto());
 
         presupuesto.setAnio(dto.getAnio());
         presupuesto.setMes(dto.getMes());
         presupuesto.setSueldo(dto.getSueldo());
+        presupuesto.setUsuario(usuario);
         presupuesto.getAsignaciones().clear();
 
         if (dto.getAsignaciones() != null) {
@@ -46,7 +55,7 @@ public class PresupuestoServiceImpl implements PresupuestoService {
                         : com.finanzas.model.TipoAsignacion.PERSONALIZADO);
                 asig.setPresupuesto(presupuesto);
                 if (a.getMetaId() != null) {
-                    MetaFinanciera meta = metaRepo.findById(a.getMetaId()).orElse(null);
+                    MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(a.getMetaId(), usuarioId).orElse(null);
                     asig.setMeta(meta);
                 }
                 presupuesto.getAsignaciones().add(asig);
@@ -57,15 +66,10 @@ public class PresupuestoServiceImpl implements PresupuestoService {
     }
 
     @Override
-    public PresupuestoDTO obtenerPresupuesto(int anio, int mes) {
-        Presupuesto p = presupuestoRepo.findByAnioAndMes(anio, mes)
+    public PresupuestoDTO obtenerPresupuesto(int anio, int mes, Long usuarioId) {
+        Presupuesto p = presupuestoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Presupuesto no encontrado: " + anio + "/" + mes));
         return toDTO(p);
-    }
-
-    @Override
-    public List<PresupuestoDTO> listarTodos() {
-        return presupuestoRepo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     private PresupuestoDTO toDTO(Presupuesto p) {

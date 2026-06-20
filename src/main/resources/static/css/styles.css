@@ -60,6 +60,20 @@ body {
 }
 .logo-text { color: #fff; font-size: 15px; font-weight: 700; }
 
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    margin: 8px 10px 0;
+    background: rgba(255,255,255,.07);
+    border-radius: 10px;
+    font-size: 12px;
+}
+#sidebar-username { color: rgba(255,255,255,.75); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.btn-logout { color: rgba(255,255,255,.45); text-decoration: none; font-size: 11px; flex-shrink: 0; }
+.btn-logout:hover { color: #fff; }
+
 .nav-links {
     list-style: none;
     margin-top: 12px;

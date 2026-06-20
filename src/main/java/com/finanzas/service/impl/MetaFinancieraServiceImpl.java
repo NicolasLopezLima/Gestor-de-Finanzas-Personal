@@ -3,7 +3,9 @@ package com.finanzas.service.impl;
 import com.finanzas.dto.MetaFinancieraDTO;
 import com.finanzas.model.EstadoMeta;
 import com.finanzas.model.MetaFinanciera;
+import com.finanzas.model.Usuario;
 import com.finanzas.repository.MetaFinancieraRepository;
+import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.MetaFinancieraService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +21,17 @@ import java.util.stream.Collectors;
 public class MetaFinancieraServiceImpl implements MetaFinancieraService {
 
     private final MetaFinancieraRepository metaRepo;
+    private final UsuarioRepository usuarioRepo;
 
-    public MetaFinancieraServiceImpl(MetaFinancieraRepository metaRepo) {
+    public MetaFinancieraServiceImpl(MetaFinancieraRepository metaRepo, UsuarioRepository usuarioRepo) {
         this.metaRepo = metaRepo;
+        this.usuarioRepo = usuarioRepo;
     }
 
     @Override
-    public MetaFinancieraDTO crearMeta(MetaFinancieraDTO dto) {
+    public MetaFinancieraDTO crearMeta(MetaFinancieraDTO dto, Long usuarioId) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
         MetaFinanciera meta = new MetaFinanciera();
         meta.setNombre(dto.getNombre());
         meta.setDescripcion(dto.getDescripcion());
@@ -33,12 +39,13 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
         meta.setMontoAcumulado(BigDecimal.ZERO);
         meta.setFechaFin(dto.getFechaFin());
         meta.setEstado(EstadoMeta.ACTIVA);
+        meta.setUsuario(usuario);
         return toDTO(metaRepo.save(meta));
     }
 
     @Override
-    public MetaFinancieraDTO actualizarMeta(Long id, MetaFinancieraDTO dto) {
-        MetaFinanciera meta = metaRepo.findById(id)
+    public MetaFinancieraDTO actualizarMeta(Long id, MetaFinancieraDTO dto, Long usuarioId) {
+        MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
         meta.setNombre(dto.getNombre());
         meta.setDescripcion(dto.getDescripcion());
@@ -48,26 +55,28 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
     }
 
     @Override
-    public void eliminarMeta(Long id) {
-        metaRepo.deleteById(id);
+    public void eliminarMeta(Long id, Long usuarioId) {
+        MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
+        metaRepo.delete(meta);
     }
 
     @Override
-    public List<MetaFinancieraDTO> listarActivas() {
-        actualizarEstadosVencidos();
-        return metaRepo.findByEstado(EstadoMeta.ACTIVA).stream()
-                .map(this::toDTO).collect(Collectors.toList());
+    public List<MetaFinancieraDTO> listarActivas(Long usuarioId) {
+        actualizarEstadosVencidos(usuarioId);
+        return metaRepo.findByEstadoAndUsuarioId(EstadoMeta.ACTIVA, usuarioId)
+                .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
-    public List<MetaFinancieraDTO> listarTodas() {
-        actualizarEstadosVencidos();
-        return metaRepo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
+    public List<MetaFinancieraDTO> listarTodas(Long usuarioId) {
+        actualizarEstadosVencidos(usuarioId);
+        return metaRepo.findByUsuarioId(usuarioId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
-    public MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto) {
-        MetaFinanciera meta = metaRepo.findById(id)
+    public MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, Long usuarioId) {
+        MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
         meta.setMontoAcumulado(meta.getMontoAcumulado().add(monto));
         if (meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) >= 0) {
@@ -76,8 +85,8 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
         return toDTO(metaRepo.save(meta));
     }
 
-    private void actualizarEstadosVencidos() {
-        metaRepo.findByEstado(EstadoMeta.ACTIVA).forEach(meta -> {
+    private void actualizarEstadosVencidos(Long usuarioId) {
+        metaRepo.findByEstadoAndUsuarioId(EstadoMeta.ACTIVA, usuarioId).forEach(meta -> {
             if (meta.getFechaFin().isBefore(LocalDate.now())
                     && meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) < 0) {
                 meta.setEstado(EstadoMeta.VENCIDA);

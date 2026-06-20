@@ -5,10 +5,8 @@ import com.finanzas.dto.TransaccionDTO;
 import java.util.List;
 
 public interface PeriodoService {
-    PeriodoResumenDTO obtenerOCrearPeriodoActual();
-    PeriodoResumenDTO obtenerPeriodo(int anio, int mes);
-    List<PeriodoResumenDTO> listarTodos();
-    TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto);
-    void eliminarTransaccion(Long transaccionId);
-    PeriodoResumenDTO cerrarPeriodo(int anio, int mes);
+    PeriodoResumenDTO obtenerPeriodo(int anio, int mes, Long usuarioId);
+    TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto, Long usuarioId);
+    void eliminarTransaccion(Long transaccionId, Long usuarioId);
+    PeriodoResumenDTO cerrarPeriodo(int anio, int mes, Long usuarioId);
 }

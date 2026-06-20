@@ -1,9 +1,15 @@
 # IntelliJ
 .idea/
 *.iml
+out/
 
 # NetBeans
 nbproject/private/
 build/
 dist/
 /target/
+.gstack/
+
+# Variables de entorno locales (credenciales)
+.env.local
+.env

@@ -31,6 +31,10 @@ public class Inversion {
     @Column(length = 500)
     private String notas;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = true)
+    private Usuario usuario;
+
     public Inversion() {}
 
     public Long getId() { return id; }
@@ -46,4 +50,6 @@ public class Inversion {
     public void setFechaRegistro(LocalDate fechaRegistro) { this.fechaRegistro = fechaRegistro; }
     public String getNotas() { return notas; }
     public void setNotas(String notas) { this.notas = notas; }
+    public Usuario getUsuario() { return usuario; }
+    public void setUsuario(Usuario usuario) { this.usuario = usuario; }
 }

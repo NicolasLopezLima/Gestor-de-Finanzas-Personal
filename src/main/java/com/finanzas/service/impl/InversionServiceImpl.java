@@ -3,7 +3,9 @@ package com.finanzas.service.impl;
 import com.finanzas.dto.InversionDTO;
 import com.finanzas.model.Inversion;
 import com.finanzas.model.TipoInversion;
+import com.finanzas.model.Usuario;
 import com.finanzas.repository.InversionRepository;
+import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.InversionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +21,17 @@ import java.util.stream.Collectors;
 public class InversionServiceImpl implements InversionService {
 
     private final InversionRepository inversionRepo;
+    private final UsuarioRepository usuarioRepo;
 
-    public InversionServiceImpl(InversionRepository inversionRepo) {
+    public InversionServiceImpl(InversionRepository inversionRepo, UsuarioRepository usuarioRepo) {
         this.inversionRepo = inversionRepo;
+        this.usuarioRepo = usuarioRepo;
     }
 
     @Override
-    public InversionDTO agregar(InversionDTO dto) {
+    public InversionDTO agregar(InversionDTO dto, Long usuarioId) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
         Inversion inv = new Inversion();
         inv.setNombre(dto.getNombre());
         inv.setTipo(dto.getTipo());
@@ -33,12 +39,13 @@ public class InversionServiceImpl implements InversionService {
         inv.setPorcentajeCartera(dto.getPorcentajeCartera());
         inv.setFechaRegistro(dto.getFechaRegistro() != null ? dto.getFechaRegistro() : LocalDate.now());
         inv.setNotas(dto.getNotas());
+        inv.setUsuario(usuario);
         return toDTO(inversionRepo.save(inv));
     }
 
     @Override
-    public InversionDTO actualizar(Long id, InversionDTO dto) {
-        Inversion inv = inversionRepo.findById(id)
+    public InversionDTO actualizar(Long id, InversionDTO dto, Long usuarioId) {
+        Inversion inv = inversionRepo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Inversión no encontrada: " + id));
         inv.setNombre(dto.getNombre());
         inv.setTipo(dto.getTipo());
@@ -49,18 +56,20 @@ public class InversionServiceImpl implements InversionService {
     }
 
     @Override
-    public void eliminar(Long id) {
-        inversionRepo.deleteById(id);
+    public void eliminar(Long id, Long usuarioId) {
+        Inversion inv = inversionRepo.findByIdAndUsuarioId(id, usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Inversión no encontrada: " + id));
+        inversionRepo.delete(inv);
     }
 
     @Override
-    public List<InversionDTO> listarTodas() {
-        return inversionRepo.findAll().stream().map(this::toDTO).collect(Collectors.toList());
+    public List<InversionDTO> listarTodas(Long usuarioId) {
+        return inversionRepo.findByUsuarioId(usuarioId).stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
-    public Map<String, Object> resumenCartera() {
-        List<Inversion> todas = inversionRepo.findAll();
+    public Map<String, Object> resumenCartera(Long usuarioId) {
+        List<Inversion> todas = inversionRepo.findByUsuarioId(usuarioId);
         BigDecimal total = todas.stream()
                 .map(Inversion::getMontoInvertido)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
