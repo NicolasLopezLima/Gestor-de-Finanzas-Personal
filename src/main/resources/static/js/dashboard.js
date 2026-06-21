@@ -15,8 +15,9 @@ async function initDashboard() {
     `;
 
     try {
+        const mes = now.getMonth() + 1;
         const [periodo, metas, resumen] = await Promise.all([
-            api.getPeriodoActual(),
+            api.getPeriodo(anio, mes),
             api.listarMetas().catch(() => []),
             api.resumenCartera().catch(() => ({})),
         ]);
