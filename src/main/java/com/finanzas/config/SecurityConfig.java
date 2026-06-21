@@ -12,14 +12,15 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/login", "/oauth2/**", "/css/**", "/js/**", "/favicon.ico").permitAll()
+                .requestMatchers("/login", "/login.html", "/oauth2/**", "/css/**", "/js/**", "/favicon.ico").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
+                .loginPage("/login.html")
                 .defaultSuccessUrl("/", true)
             )
             .logout(logout -> logout
-                .logoutSuccessUrl("/login")
+                .logoutSuccessUrl("/login.html")
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
             )
