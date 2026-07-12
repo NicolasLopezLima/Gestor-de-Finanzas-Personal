@@ -39,6 +39,7 @@ const api = {
     actualizarMeta: (id, dto) => request('PUT', `/metas/${id}`, dto),
     eliminarMeta: (id) => request('DELETE', `/metas/${id}`),
     abonarMeta: (id, monto) => request('POST', `/metas/${id}/abonar`, { monto }),
+    listarAbonosMeta: (id) => request('GET', `/metas/${id}/abonos`),
 
     // Inversiones
     listarInversiones: () => request('GET', '/inversiones'),

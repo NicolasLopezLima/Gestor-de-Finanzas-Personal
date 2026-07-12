@@ -9,6 +9,15 @@ const CATEGORIAS = {
                'Servicios', 'Restaurantes', 'Tecnología', 'Viajes', 'Deporte', 'Seguros', 'Otros gastos'],
 };
 
+const CATEGORIA_ICONS = {
+    'Sueldo': '💰', 'Freelance': '💻', 'Inversiones': '📈', 'Alquiler cobrado': '🏠',
+    'Bono': '🎁', 'Regalo': '🎁', 'Otros ingresos': '➕',
+    'Alimentación': '🛒', 'Transporte': '🚗', 'Vivienda': '🏠', 'Salud': '🩺',
+    'Educación': '🎓', 'Ropa': '👕', 'Entretenimiento': '🎬', 'Servicios': '💡',
+    'Restaurantes': '🍽', 'Tecnología': '🖥', 'Viajes': '✈️', 'Deporte': '⚽',
+    'Seguros': '🛡', 'Otros gastos': '➖',
+};
+
 async function initTransacciones() {
     fillAnioSelect(document.getElementById('periodo-anio'));
     fillMesSelect(document.getElementById('periodo-mes'));
@@ -17,6 +26,12 @@ async function initTransacciones() {
     document.getElementById('periodo-mes').addEventListener('change', cargarPeriodo);
     document.getElementById('btn-cerrar-periodo').addEventListener('click', cerrarPeriodo);
     document.getElementById('form-transaccion').addEventListener('submit', onAgregarTransaccion);
+
+    document.getElementById('btn-nueva-transaccion').addEventListener('click', abrirModalTransaccion);
+    document.getElementById('btn-cerrar-transaccion').addEventListener('click', cerrarModalTransaccion);
+    document.getElementById('modal-transaccion').addEventListener('click', e => {
+        if (e.target === document.getElementById('modal-transaccion')) cerrarModalTransaccion();
+    });
 
     // Toggle tipo
     document.querySelectorAll('.tipo-btn').forEach(btn => {
@@ -59,6 +74,16 @@ function actualizarCategorias(tipo) {
     });
 }
 
+function abrirModalTransaccion() {
+    if (periodoActual?.cerrado) return;
+    document.getElementById('modal-transaccion').classList.remove('hidden');
+    document.getElementById('t-descripcion').focus();
+}
+
+function cerrarModalTransaccion() {
+    document.getElementById('modal-transaccion').classList.add('hidden');
+}
+
 function actualizarMesLabel() {
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
@@ -90,6 +115,9 @@ function renderPeriodo() {
     document.getElementById('btn-cerrar-periodo').disabled = cerrado;
     document.getElementById('form-transaccion').style.opacity = cerrado ? '.5' : '1';
     document.getElementById('form-transaccion').style.pointerEvents = cerrado ? 'none' : '';
+    const fab = document.getElementById('btn-nueva-transaccion');
+    fab.classList.toggle('fab-disabled', cerrado);
+    fab.title = cerrado ? 'Período cerrado' : 'Agregar transacción';
 
     // La asignación de tipo GASTO es siempre la base del disponible
     const gastoPresupuestado = presupuestoMes?.asignaciones
@@ -124,23 +152,59 @@ function renderPeriodo() {
     renderTabla();
 }
 
+function agruparPorFecha(lista) {
+    const grupos = new Map();
+    lista.forEach(t => {
+        if (!grupos.has(t.fecha)) grupos.set(t.fecha, []);
+        grupos.get(t.fecha).push(t);
+    });
+    return [...grupos.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function labelFecha(fechaStr) {
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const ayerStr = ayer.toISOString().slice(0, 10);
+    if (fechaStr === hoyStr) return 'Hoy';
+    if (fechaStr === ayerStr) return 'Ayer';
+    return fmtDate(fechaStr);
+}
+
 function renderTabla() {
-    const tbody = document.querySelector('#tabla-transacciones tbody');
-    if (!periodoActual) { tbody.innerHTML = ''; return; }
+    const cont = document.getElementById('tabla-transacciones');
+    if (!periodoActual) { cont.innerHTML = ''; return; }
     let lista = periodoActual.transacciones || [];
     if (filtroActivo !== 'todos') lista = lista.filter(t => t.tipo === filtroActivo);
 
-    tbody.innerHTML = lista.length === 0
-        ? '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">Sin transacciones</td></tr>'
-        : lista.map(t => `
-            <tr>
-                <td>${fmtDate(t.fecha)}</td>
-                <td>${t.descripcion}</td>
-                <td>${t.categoria}</td>
-                <td><span class="badge badge-${t.tipo.toLowerCase()}">${t.tipo === 'INGRESO' ? '↑ Ingreso' : '↓ Gasto'}</span></td>
-                <td style="font-weight:600;color:${t.tipo === 'INGRESO' ? 'var(--success)' : 'var(--danger)'}">${fmt(t.monto)}</td>
-                <td>${periodoActual.cerrado ? '' : `<button class="btn-icon" onclick="eliminarTransaccion(${t.id})">🗑</button>`}</td>
-            </tr>`).join('');
+    if (lista.length === 0) {
+        cont.innerHTML = emptyState({
+            icon: '🧾',
+            title: filtroActivo === 'todos' ? 'Todavía no hay movimientos' : 'Nada para mostrar con este filtro',
+            text: filtroActivo === 'todos'
+                ? 'Cargá tu primer ingreso o gasto con el botón "+".'
+                : 'Probá con otro filtro o agregá una transacción nueva.',
+        });
+        return;
+    }
+
+    const grupos = agruparPorFecha(lista);
+    cont.innerHTML = grupos.map(([fecha, items]) => `
+        <div class="tx-group">
+            <div class="tx-group-label">${labelFecha(fecha)}</div>
+            ${items.map(t => `
+                <div class="tx-row">
+                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">${CATEGORIA_ICONS[t.categoria] || (t.tipo === 'INGRESO' ? '↑' : '↓')}</span>
+                    <div class="tx-row-info">
+                        <div class="tx-row-desc">${t.descripcion}</div>
+                        <div class="tx-row-cat">${t.categoria}</div>
+                    </div>
+                    <div class="tx-row-right">
+                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
+                        ${periodoActual.cerrado ? '' : `<button class="btn-icon" onclick="eliminarTransaccion(${t.id})">🗑</button>`}
+                    </div>
+                </div>`).join('')}
+        </div>`).join('');
 }
 
 async function onAgregarTransaccion(e) {
@@ -175,6 +239,7 @@ async function onAgregarTransaccion(e) {
         // Resetear solo descripción y monto, mantener tipo/categoría/día
         document.getElementById('t-descripcion').value = '';
         document.getElementById('t-monto').value = '';
+        cerrarModalTransaccion();
         showToast('Transacción agregada');
     } catch (err) {
         showToast(err.message, 'error');

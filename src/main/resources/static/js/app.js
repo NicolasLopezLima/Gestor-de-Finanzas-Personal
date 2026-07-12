@@ -8,13 +8,12 @@ const pages = {
 
 function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    document.querySelectorAll('.nav-links a, .bottom-nav a').forEach(a => a.classList.remove('active'));
 
     const page = document.getElementById(`page-${pageId}`);
     if (page) page.classList.add('active');
 
-    const link = document.querySelector(`[data-page="${pageId}"]`);
-    if (link) link.classList.add('active');
+    document.querySelectorAll(`[data-page="${pageId}"]`).forEach(link => link.classList.add('active'));
 
     const entry = pages[pageId];
     if (entry && !entry.loaded) {
@@ -25,7 +24,7 @@ function navigateTo(pageId) {
     }
 }
 
-document.querySelectorAll('.nav-links a').forEach(a => {
+document.querySelectorAll('.nav-links a, .bottom-nav a').forEach(a => {
     a.addEventListener('click', e => {
         e.preventDefault();
         navigateTo(a.dataset.page);
@@ -47,46 +46,38 @@ fetch('/api/auth/me')
 
 navigateTo('dashboard');
 
-// ── Hamburger / sidebar mobile ───────────────────────────
-const sidebar  = document.getElementById('sidebar');
-const overlay  = document.getElementById('sidebar-overlay');
-const hamburger = document.getElementById('btn-hamburger');
-
-function openSidebar() {
-    sidebar.classList.add('open');
-    overlay.classList.add('visible');
-    hamburger.classList.add('open');
+// ── Sidebar colapsable (desktop) ──────────────────────────
+const collapseBtn = document.getElementById('btn-sidebar-collapse');
+if (localStorage.getItem('sidebar-collapsed') === 'true') {
+    document.body.classList.add('sidebar-collapsed');
 }
-
-function closeSidebar() {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('visible');
-    hamburger.classList.remove('open');
-}
-
-hamburger.addEventListener('click', () =>
-    sidebar.classList.contains('open') ? closeSidebar() : openSidebar()
-);
-
-overlay.addEventListener('click', closeSidebar);
-
-// Cerrar sidebar al navegar en mobile
-document.querySelectorAll('.nav-links a').forEach(a =>
-    a.addEventListener('click', () => {
-        if (window.innerWidth <= 768) closeSidebar();
-    })
-);
+collapseBtn.addEventListener('click', () => {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sidebar-collapsed', collapsed);
+});
 
 // ── Theme toggle ─────────────────────────────────────────
 const themeBtn = document.querySelector('.theme-toggle');
-const saved = localStorage.getItem('theme');
-if (saved === 'dark') {
-    document.body.setAttribute('data-dark-mode', 'true');
-    themeBtn.setAttribute('aria-pressed', 'true');
+const themeMobileBtn = document.getElementById('btn-theme-mobile');
+
+function syncThemeMobileIcon(isDark) {
+    const icon = themeMobileBtn.querySelector('.material-symbols-outlined');
+    icon.textContent = isDark ? 'light_mode' : 'dark_mode';
 }
+
+function setTheme(isDark) {
+    document.body.setAttribute('data-dark-mode', isDark ? 'true' : 'false');
+    themeBtn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    syncThemeMobileIcon(isDark);
+}
+
+const saved = localStorage.getItem('theme');
+if (saved === 'dark') setTheme(true);
+
 themeBtn.addEventListener('click', () => {
-    const isDark = themeBtn.getAttribute('aria-pressed') === 'true';
-    themeBtn.setAttribute('aria-pressed', isDark ? 'false' : 'true');
-    document.body.setAttribute('data-dark-mode', isDark ? 'false' : 'true');
-    localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    setTheme(themeBtn.getAttribute('aria-pressed') !== 'true');
+});
+themeMobileBtn.addEventListener('click', () => {
+    setTheme(document.body.getAttribute('data-dark-mode') !== 'true');
 });

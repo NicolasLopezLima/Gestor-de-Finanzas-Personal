@@ -29,6 +29,8 @@ public class MetaFinancieraDTO {
 
     private EstadoMeta estado;
 
+    private String icono;
+
     private int porcentajeProgreso;
 
     public Long getId() { return id; }
@@ -45,6 +47,8 @@ public class MetaFinancieraDTO {
     public void setFechaFin(LocalDate fechaFin) { this.fechaFin = fechaFin; }
     public EstadoMeta getEstado() { return estado; }
     public void setEstado(EstadoMeta estado) { this.estado = estado; }
+    public String getIcono() { return icono; }
+    public void setIcono(String icono) { this.icono = icono; }
     public int getPorcentajeProgreso() { return porcentajeProgreso; }
     public void setPorcentajeProgreso(int porcentajeProgreso) { this.porcentajeProgreso = porcentajeProgreso; }
 }

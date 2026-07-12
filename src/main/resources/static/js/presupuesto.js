@@ -2,12 +2,12 @@ let presupuestoActual = null;
 let metasDisponibles = [];
 
 const TIPOS_FIJOS = [
-    { tipo: 'GASTO',     label: 'Gasto',     icon: '🛒', descripcion: 'Gasto diario disponible' },
-    { tipo: 'COLCHON',   label: 'Colchón',   icon: '🛡', descripcion: 'Fondo de emergencia' },
-    { tipo: 'INVERSION', label: 'Inversión', icon: '📈', descripcion: 'Inversiones' },
+    { tipo: 'GASTO',     label: 'Gasto',     icon: '🛒', mIcon: 'shopping_cart', descripcion: 'Gasto diario disponible', tag: 'Variable' },
+    { tipo: 'COLCHON',   label: 'Colchón',   icon: '🛡', mIcon: 'savings',       descripcion: 'Fondo de emergencia',      tag: 'Meta' },
+    { tipo: 'INVERSION', label: 'Inversión', icon: '📈', mIcon: 'trending_up',   descripcion: 'Inversiones',              tag: 'Crecimiento' },
 ];
 
-const PIE_COLORS = ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'];
+const PIE_COLORS = ['#0F172A','#10B981','#475569','#0D9488','#B45309','#94A3B8','#1E3A5F','#64748B'];
 
 async function initPresupuesto() {
     fillAnioSelect(document.getElementById('p-anio'));
@@ -127,6 +127,13 @@ function actualizarRestante() {
     const el = document.getElementById('sueldo-restante');
     el.textContent = fmt(restante);
     el.style.color = restante < 0 ? 'var(--danger)' : 'var(--success)';
+
+    const pctAsignado = sueldo > 0 ? Math.min(100, Math.round((totalAsig / sueldo) * 100)) : 0;
+    const ringColor = restante < 0 ? 'var(--danger)' : 'var(--primary)';
+    document.getElementById('presupuesto-ring-wrapper').innerHTML = `
+        ${buildDonut([{ value: pctAsignado, color: ringColor }, { value: 100 - pctAsignado, color: 'transparent' }], { size: 52, stroke: 6 })}
+        <div class="dash-donut-center"><span style="font-size:11px;font-weight:700">${pctAsignado}%</span></div>
+    `;
 }
 
 // ── Pie chart ────────────────────────────────────────────────────────────────
@@ -139,6 +146,9 @@ function renderPieChart() {
     const total = asigs.reduce((s, a) => s + Number(a.monto), 0);
 
     document.getElementById('pie-sueldo-value').textContent = fmt(sueldo);
+
+    const pctAsignado = sueldo > 0 ? Math.round((total / sueldo) * 100) : 0;
+    document.getElementById('pie-asignado-value').textContent = `${pctAsignado}%`;
 
     // SVG pie
     const svg = document.getElementById('pie-chart');
@@ -166,19 +176,36 @@ function renderPieChart() {
         startAngle = endAngle;
     });
 
-    // Leyenda
+    // Chips de color bajo la dona
+    const dotsLegend = document.getElementById('pie-dots-legend');
+    dotsLegend.innerHTML = asigs.map((a, i) => {
+        const color = PIE_COLORS[i % PIE_COLORS.length];
+        return `
+        <div class="dot-chip">
+            <span class="dot" style="background:${color}"></span>
+            <span>${a.categoria}</span>
+        </div>`;
+    }).join('');
+
+    // Desglose detallado
     const leyenda = document.getElementById('pie-leyenda');
     leyenda.innerHTML = asigs.map((a, i) => {
         const color = PIE_COLORS[i % PIE_COLORS.length];
         const pct = total > 0 ? ((Number(a.monto) / total) * 100).toFixed(1) : 0;
-        const metaTag = a.metaNombre
-            ? `<div class="leyenda-meta">Meta: ${a.metaNombre}</div>` : '';
+        const tipoFijo = TIPOS_FIJOS.find(tf => tf.tipo === a.tipo);
+        const mIcon = tipoFijo?.mIcon || 'category';
+        const tag = a.metaNombre ? `Meta: ${a.metaNombre}` : (tipoFijo?.tag || 'Personalizado');
+        const tagAccent = (tipoFijo?.tag === 'Meta' || tipoFijo?.tag === 'Crecimiento') ? 'tag-accent' : '';
         return `
-        <div class="leyenda-item">
-            <div class="leyenda-dot" style="background:${color}"></div>
-            <div class="leyenda-info">
-                <div class="leyenda-nombre">${a.categoria}</div>
-                ${metaTag}
+        <div class="leyenda-item np-inset">
+            <div class="leyenda-left">
+                <span class="leyenda-icon" style="background:${color}">
+                    <span class="material-symbols-outlined">${mIcon}</span>
+                </span>
+                <div class="leyenda-info">
+                    <div class="leyenda-nombre">${a.categoria}</div>
+                    <span class="leyenda-sub ${tagAccent}">${tag}</span>
+                </div>
             </div>
             <div class="leyenda-monto">
                 <div class="l-valor">${fmt(a.monto)}</div>
@@ -186,6 +213,44 @@ function renderPieChart() {
             </div>
         </div>`;
     }).join('');
+
+    renderProTip(asigs, sueldo);
+}
+
+// ── Pro Tip / Guía institucional 50/30/20 ─────────────────────────────────────
+
+function renderProTip(asigs, sueldo) {
+    const ahorroInversion = asigs
+        .filter(a => a.tipo === 'COLCHON' || a.tipo === 'INVERSION')
+        .reduce((s, a) => s + Number(a.monto), 0);
+
+    const pctAhorroInversion = sueldo > 0 ? Math.round((ahorroInversion / sueldo) * 100) : 0;
+
+    let eficiencia, estrategia, tagClass, mensaje;
+    if (pctAhorroInversion >= 20) {
+        eficiencia = 'Eficiencia: Alta';
+        estrategia = 'Estrategia: Crecimiento';
+        tagClass = 'tag-accent';
+        mensaje = `Tu distribución se inclina hacia el ahorro y la inversión, con un ${pctAhorroInversion}% combinado de tu sueldo. ¡Excelente progreso hacia la regla 50/30/20!`;
+    } else if (pctAhorroInversion >= 10) {
+        eficiencia = 'Eficiencia: Media';
+        estrategia = 'Estrategia: Equilibrada';
+        tagClass = '';
+        mensaje = `Destinás un ${pctAhorroInversion}% de tu sueldo a ahorro e inversión. Estás cerca del 20% que recomienda la regla 50/30/20 — un poco más y lo alcanzás.`;
+    } else {
+        eficiencia = 'Eficiencia: Baja';
+        estrategia = 'Estrategia: A mejorar';
+        tagClass = 'tag-warn';
+        mensaje = `Sólo un ${pctAhorroInversion}% de tu sueldo va a ahorro e inversión, por debajo del 20% que recomienda la regla 50/30/20. Considerá reforzar el Colchón o las Inversiones.`;
+    }
+
+    document.getElementById('protip-texto').textContent = mensaje;
+    const tagEficiencia = document.getElementById('protip-tag-eficiencia');
+    tagEficiencia.textContent = eficiencia;
+    tagEficiencia.className = 'np-protip-tag ' + tagClass;
+    const tagEstrategia = document.getElementById('protip-tag-estrategia');
+    tagEstrategia.textContent = estrategia;
+    tagEstrategia.className = 'np-protip-tag ' + tagClass;
 }
 
 function slicePath(cx, cy, r, ri, startAngle, endAngle) {
