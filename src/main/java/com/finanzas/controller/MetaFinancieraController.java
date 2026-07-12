@@ -1,5 +1,6 @@
 package com.finanzas.controller;
 
+import com.finanzas.dto.AbonoMetaDTO;
 import com.finanzas.dto.MetaFinancieraDTO;
 import com.finanzas.service.MetaFinancieraService;
 import com.finanzas.service.UsuarioService;
@@ -58,5 +59,11 @@ public class MetaFinancieraController {
     public ResponseEntity<MetaFinancieraDTO> abonar(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
         return ResponseEntity.ok(metaService.abonarMonto(id, body.get("monto"), uid));
+    }
+
+    @GetMapping("/{id}/abonos")
+    public ResponseEntity<List<AbonoMetaDTO>> listarAbonos(@PathVariable Long id) {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        return ResponseEntity.ok(metaService.listarAbonos(id, uid));
     }
 }

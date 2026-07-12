@@ -6,32 +6,62 @@
     <title>Gestor de Finanzas Personal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- Overlay para cerrar sidebar en mobile -->
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
     <!-- Topbar mobile -->
     <header class="topbar">
-        <button class="hamburger" id="btn-hamburger" aria-label="Abrir menú">
-            <span></span><span></span><span></span>
-        </button>
         <span class="topbar-logo">FinanzasApp</span>
+        <div class="topbar-actions">
+            <button type="button" id="btn-theme-mobile" class="topbar-icon-btn" aria-label="Cambiar tema">
+                <span class="material-symbols-outlined">dark_mode</span>
+            </button>
+            <a href="/logout" class="topbar-icon-btn" aria-label="Cerrar sesión">
+                <span class="material-symbols-outlined">logout</span>
+            </a>
+        </div>
     </header>
+
+    <!-- Bottom nav mobile -->
+    <nav class="bottom-nav" id="bottom-nav">
+        <a href="#" data-page="dashboard" class="active">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" data-page="transacciones">
+            <span class="material-symbols-outlined">receipt_long</span>
+            <span>Gastos</span>
+        </a>
+        <a href="#" data-page="presupuesto">
+            <span class="material-symbols-outlined">account_balance_wallet</span>
+            <span>Presupuesto</span>
+        </a>
+        <a href="#" data-page="metas">
+            <span class="material-symbols-outlined">track_changes</span>
+            <span>Metas</span>
+        </a>
+        <a href="#" data-page="inversiones">
+            <span class="material-symbols-outlined">pie_chart</span>
+            <span>Inversión</span>
+        </a>
+    </nav>
 
     <nav class="sidebar" id="sidebar">
         <div class="logo">
             <span class="logo-icon">F</span>
             <span class="logo-text">FinanzasApp</span>
+            <button class="sidebar-collapse-btn" id="btn-sidebar-collapse" title="Colapsar menú">
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
         </div>
         <ul class="nav-links">
-            <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
-            <li><a href="#" data-page="transacciones">Ingresos & Gastos</a></li>
-            <li><a href="#" data-page="presupuesto">Presupuesto</a></li>
-            <li><a href="#" data-page="metas">Metas Financieras</a></li>
-            <li><a href="#" data-page="inversiones">Inversiones</a></li>
+            <li><a href="#" data-page="dashboard" class="active" title="Dashboard"><span class="material-symbols-outlined">dashboard</span><span class="nav-label">Dashboard</span></a></li>
+            <li><a href="#" data-page="transacciones" title="Ingresos & Gastos"><span class="material-symbols-outlined">receipt_long</span><span class="nav-label">Ingresos & Gastos</span></a></li>
+            <li><a href="#" data-page="presupuesto" title="Presupuesto"><span class="material-symbols-outlined">account_balance_wallet</span><span class="nav-label">Presupuesto</span></a></li>
+            <li><a href="#" data-page="metas" title="Metas Financieras"><span class="material-symbols-outlined">track_changes</span><span class="nav-label">Metas Financieras</span></a></li>
+            <li><a href="#" data-page="inversiones" title="Inversiones"><span class="material-symbols-outlined">pie_chart</span><span class="nav-label">Inversiones</span></a></li>
         </ul>
         <div class="sidebar-bottom">
             <button class="theme-toggle" aria-pressed="false" title="Toggle Dark Mode">
@@ -82,13 +112,26 @@
                 <div class="periodo-selector">
                     <select id="periodo-anio"></select>
                     <select id="periodo-mes"></select>
-                    <button id="btn-cerrar-periodo" class="btn btn-warning">Cerrar Periodo</button>
+                    <button id="btn-cerrar-periodo" class="np-button np-pill">Cerrar Periodo</button>
                 </div>
             </div>
             <div class="summary-bar" id="summary-bar"></div>
-            <div class="two-cols">
-                <div class="card">
-                    <h2>Nueva Transacción</h2>
+
+            <div class="np-tabs">
+                <button class="tab np-tab active" data-filter="todos">Todos</button>
+                <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
+                <button class="tab np-tab" data-filter="GASTO">Gastos</button>
+            </div>
+            <div id="tabla-transacciones" class="tx-list"></div>
+
+            <button type="button" id="btn-nueva-transaccion" class="np-fab" title="Agregar transacción">+</button>
+
+            <div id="modal-transaccion" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Nueva Transacción</h2>
+                        <button type="button" id="btn-cerrar-transaccion" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
                     <form id="form-transaccion">
                         <div class="form-group">
                             <label>Descripción</label>
@@ -123,22 +166,8 @@
                                 <input type="number" id="t-dia" min="1" max="31" placeholder="Día" required>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Agregar</button>
+                        <button type="submit" class="btn btn-primary" style="width:100%">Agregar</button>
                     </form>
-                </div>
-                <div class="card">
-                    <h2>Transacciones del Mes</h2>
-                    <div class="filter-tabs">
-                        <button class="tab active" data-filter="todos">Todos</button>
-                        <button class="tab" data-filter="INGRESO">Ingresos</button>
-                        <button class="tab" data-filter="GASTO">Gastos</button>
-                    </div>
-                    <table id="tabla-transacciones">
-                        <thead>
-                            <tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Tipo</th><th>Monto</th><th></th></tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
                 </div>
             </div>
         </div>
@@ -150,24 +179,91 @@
                     <select id="p-anio"></select>
                     <select id="p-mes"></select>
                     <button id="btn-cargar-presupuesto" class="btn btn-secondary">Cargar</button>
-                    <button id="btn-editar-presupuesto" class="btn btn-primary">✏️ Editar</button>
                 </div>
             </div>
 
             <!-- Vista principal: pie chart -->
-            <div id="presupuesto-vista" class="card presupuesto-main-card">
+            <div id="presupuesto-vista">
                 <div id="presupuesto-empty" class="presupuesto-empty" style="display:none">
-                    <p>No hay presupuesto para este periodo.</p>
-                </div>
-                <div id="presupuesto-chart-container" style="display:none">
-                    <div class="pie-wrapper">
-                        <svg id="pie-chart" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
-                        <div id="pie-center">
-                            <div class="pie-center-label">Sueldo</div>
-                            <div class="pie-center-value" id="pie-sueldo-value"></div>
+                    <div class="presupuesto-empty-hero">
+                        <div class="presupuesto-empty-icon-ring">
+                            <div class="presupuesto-empty-icon">💼</div>
+                        </div>
+                        <h2>Configurá tu presupuesto</h2>
+                        <p>Tomá el control total de tu flujo de efectivo. Asignar límites inteligentes te permite gastar con libertad mientras asegurás tu futuro financiero.</p>
+                        <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalPresupuesto()">Empezar configuración →</button>
+                    </div>
+                    <div class="presupuesto-guide">
+                        <div class="presupuesto-guide-icon">💡</div>
+                        <div class="presupuesto-guide-body">
+                            <h3>Guía institucional: la regla 50/30/20</h3>
+                            <p>Un estándar simple para la estabilidad financiera. Dividí tus ingresos mensuales en tres categorías principales:</p>
+                            <div class="presupuesto-guide-grid">
+                                <div class="presupuesto-guide-item">
+                                    <strong>50% Necesidades</strong>
+                                    <span>Vivienda, servicios, comida y salud.</span>
+                                </div>
+                                <div class="presupuesto-guide-item">
+                                    <strong>30% Deseos</strong>
+                                    <span>Ocio, hobbies y suscripciones.</span>
+                                </div>
+                                <div class="presupuesto-guide-item">
+                                    <strong>20% Ahorro</strong>
+                                    <span>Inversiones y fondo de emergencia.</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div id="pie-leyenda"></div>
+                </div>
+                <div id="presupuesto-chart-container" style="display:none">
+                    <!-- Ingreso mensual neto -->
+                    <div class="np-flat np-salary-card">
+                        <div>
+                            <p class="np-label-sm">Ingreso Mensual Neto</p>
+                            <h2 class="np-display" id="pie-sueldo-value"></h2>
+                        </div>
+                        <button type="button" id="btn-editar-presupuesto" class="np-button np-pill">
+                            <span class="material-symbols-outlined">edit</span>
+                            Editar Presupuesto
+                        </button>
+                    </div>
+
+                    <!-- Bento: dona + desglose -->
+                    <div class="np-bento">
+                        <div class="np-flat np-donut-card">
+                            <h3 class="np-card-title">Distribución Global</h3>
+                            <div class="pie-wrapper np-pie-wrapper">
+                                <svg id="pie-chart" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+                                <div id="pie-center" class="pie-center">
+                                    <div class="pie-center-label">Ejecutado</div>
+                                    <div class="pie-center-value" id="pie-asignado-value"></div>
+                                </div>
+                            </div>
+                            <div id="pie-dots-legend" class="np-dots-legend"></div>
+                        </div>
+
+                        <div class="np-desglose-col">
+                            <div class="np-flat np-desglose-card">
+                                <h3 class="np-card-title">Desglose Detallado</h3>
+                                <div id="pie-leyenda" class="np-desglose-list"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pro Tip / Guía institucional -->
+                    <div class="np-flat np-protip">
+                        <div class="np-protip-icon">
+                            <span class="material-symbols-outlined">lightbulb</span>
+                        </div>
+                        <div class="np-protip-body">
+                            <h4 class="np-protip-title">Guía Institucional: La Regla 50/30/20</h4>
+                            <p id="protip-texto" class="np-protip-text"></p>
+                            <div class="np-protip-tags">
+                                <span id="protip-tag-eficiencia" class="np-protip-tag"></span>
+                                <span id="protip-tag-estrategia" class="np-protip-tag"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -181,7 +277,10 @@
                     <form id="form-presupuesto">
                         <div class="form-group">
                             <label>Sueldo del mes</label>
-                            <input type="number" id="p-sueldo" min="0" step="0.01" required>
+                            <div class="sueldo-input-wrapper">
+                                <span class="sueldo-input-prefix">$</span>
+                                <input type="number" id="p-sueldo" min="0" step="0.01" required>
+                            </div>
                         </div>
                         <div id="asignaciones-container">
                             <h3>Categorías fijas</h3>
@@ -189,10 +288,19 @@
                             <h3 style="margin-top:16px">Personalizadas <button type="button" id="btn-add-asig" class="btn btn-sm">+ Agregar</button></h3>
                             <div id="asignaciones-custom-list"></div>
                         </div>
-                        <div class="form-group sueldo-restante">
-                            <span>Restante sin asignar: <strong id="sueldo-restante">$0</strong></span>
+                        <div class="presupuesto-resumen-footer">
+                            <div class="presupuesto-resumen-ring">
+                                <div class="dash-donut-wrapper" id="presupuesto-ring-wrapper" style="width:52px;height:52px;margin:0"></div>
+                            </div>
+                            <div class="presupuesto-resumen-info">
+                                <div class="dash-period-label">Restante sin asignar</div>
+                                <strong id="sueldo-restante">$0</strong>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary" style="width:100%">Guardar Presupuesto</button>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Guardar Presupuesto</button>
+                            <button type="button" class="btn btn-secondary" onclick="cerrarModalPresupuesto()">Cancelar</button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -201,15 +309,21 @@
         <div id="page-metas" class="page">
             <div class="page-header">
                 <h1>Metas Financieras</h1>
-                <button id="btn-nueva-meta" class="btn btn-primary">+ Nueva Meta</button>
             </div>
             <div id="metas-grid" class="cards-grid"></div>
 
             <div id="modal-meta" class="modal hidden">
-                <div class="modal-content">
-                    <h2 id="modal-meta-title">Nueva Meta</h2>
+                <div class="modal-content meta-form">
+                    <div class="meta-form-icon-header">
+                        <div class="meta-form-icon-ring" id="meta-form-icon-ring">
+                            <span class="material-symbols-outlined">savings</span>
+                        </div>
+                        <p>Ajustá los detalles de tu meta financiera.</p>
+                    </div>
+                    <h2 id="modal-meta-title" style="text-align:center">Nueva Meta</h2>
                     <form id="form-meta">
                         <input type="hidden" id="meta-id">
+                        <input type="hidden" id="meta-icono" value="savings">
                         <div class="form-group">
                             <label>Nombre</label>
                             <input type="text" id="meta-nombre" required>
@@ -226,11 +340,96 @@
                             <label>Fecha Límite</label>
                             <input type="date" id="meta-fecha" required>
                         </div>
+                        <div class="form-group">
+                            <label>Ícono</label>
+                            <div class="meta-icon-picker" id="meta-icon-picker"></div>
+                        </div>
+                        <div class="meta-edit-progreso hidden" id="meta-edit-progreso">
+                            <div class="meta-edit-progreso-row">
+                                <span>Progreso Actual</span>
+                                <span class="meta-edit-progreso-badge" id="meta-edit-progreso-pct"></span>
+                            </div>
+                            <div class="progress-bar-track"><div class="progress-bar-fill" id="meta-edit-progreso-bar" style="background:var(--success)"></div></div>
+                        </div>
                         <div class="modal-actions">
-                            <button type="submit" class="btn btn-primary">Guardar</button>
+                            <button type="submit" class="np-button-dark np-pill" style="width:100%;justify-content:center;display:flex">Guardar Cambios</button>
                             <button type="button" id="btn-cancelar-meta" class="btn btn-secondary">Cancelar</button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <div id="modal-meta-detalle" class="modal modal-fullscreen hidden">
+                <div class="meta-detalle-page">
+                    <div class="meta-detalle-topbar">
+                        <button type="button" id="btn-cerrar-detalle" class="btn-icon">
+                            <span class="material-symbols-outlined">arrow_back</span>
+                        </button>
+                        <h1>Detalle de Meta</h1>
+                        <span style="width:36px"></span>
+                    </div>
+                    <div class="meta-detalle-content">
+                        <div class="meta-detalle-breadcrumb">
+                            <span class="meta-detalle-eyebrow">Meta de ahorro</span>
+                            <h2 id="detalle-meta-nombre">Meta</h2>
+                        </div>
+                        <div class="meta-detalle-bento">
+                            <div class="meta-detalle-main">
+                                <div class="np-flat meta-detalle-card">
+                                    <div class="meta-detalle-progreso">
+                                        <div class="meta-detalle-monto">
+                                            <span id="detalle-monto-actual"></span>
+                                            <span class="meta-detalle-monto-objetivo">/ <span id="detalle-monto-objetivo"></span></span>
+                                        </div>
+                                        <div class="meta-detalle-badges">
+                                            <span class="dash-badge dash-badge-open" id="detalle-pct-badge"></span>
+                                            <span class="meta-detalle-fecha">📅 Meta: <span id="detalle-fecha"></span></span>
+                                        </div>
+                                    </div>
+                                    <div class="meta-detalle-bar-track">
+                                        <div class="progress-bar-fill" id="detalle-bar-fill" style="background:var(--primary)"></div>
+                                    </div>
+                                    <div class="meta-detalle-bar-labels">
+                                        <span>$0</span>
+                                        <span id="detalle-faltan" class="meta-detalle-faltan"></span>
+                                        <span id="detalle-objetivo-label"></span>
+                                    </div>
+                                    <div class="meta-detalle-stats">
+                                        <div class="meta-detalle-stat">
+                                            <span>Ahorro mensual promedio</span>
+                                            <strong id="detalle-promedio">—</strong>
+                                        </div>
+                                        <div class="meta-detalle-stat">
+                                            <span>Tiempo restante</span>
+                                            <strong id="detalle-tiempo-restante">—</strong>
+                                        </div>
+                                        <div class="meta-detalle-stat">
+                                            <span>Último aporte</span>
+                                            <strong id="detalle-ultimo-aporte">—</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="meta-detalle-action" id="detalle-action">
+                                    <div>
+                                        <h3>¿Listo para sumar?</h3>
+                                        <p>Aumentá el monto acumulado con un click.</p>
+                                    </div>
+                                    <button type="button" class="np-button-dark np-pill" id="btn-abonar-desde-detalle">+ Abonar Fondos</button>
+                                </div>
+                            </div>
+                            <div class="meta-detalle-side">
+                                <div class="np-flat meta-detalle-card">
+                                    <h3 class="np-card-title">Aportes Recientes</h3>
+                                    <div id="detalle-aportes-list" class="meta-detalle-aportes"></div>
+                                </div>
+                                <div class="np-flat meta-detalle-card meta-detalle-consejo">
+                                    <div class="meta-detalle-consejo-icon">💡</div>
+                                    <h4>Consejo</h4>
+                                    <p id="detalle-consejo-text"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -256,27 +455,42 @@
         <div id="page-inversiones" class="page">
             <div class="page-header">
                 <h1>Cartera de Inversiones</h1>
-                <button id="btn-nueva-inversion" class="btn btn-primary">+ Nueva Inversión</button>
-            </div>
-            <div class="two-cols">
-                <div class="card">
-                    <h2>Resumen de Cartera</h2>
-                    <div id="cartera-resumen"></div>
-                    <div id="cartera-bars"></div>
-                </div>
-                <div class="card">
-                    <h2>Posiciones</h2>
-                    <table id="tabla-inversiones">
-                        <thead>
-                            <tr><th>Nombre</th><th>Tipo</th><th>Monto</th><th>% Objetivo</th><th></th></tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+                <button id="btn-nueva-inversion" class="np-button np-pill">+ Nueva Inversión</button>
             </div>
 
+            <div class="inv-hero">
+                <div class="dash-period-label">Valor Total Neto</div>
+                <div class="inv-hero-value" id="inv-total-value"></div>
+            </div>
+
+            <div class="inv-bento" id="inv-bento" style="display:none">
+                <div class="np-flat inv-donut-card">
+                    <div class="dash-donut-wrapper" id="inv-donut-wrapper" style="width:200px;height:200px;margin:0 0 20px"></div>
+                    <div class="inv-legend-grid" id="inv-legend-grid"></div>
+                </div>
+                <div class="np-flat inv-rebalance-card" id="inv-rebalance-card"></div>
+            </div>
+
+            <div class="inv-posiciones-head">
+                <h3>Posiciones</h3>
+                <div class="inv-filter-wrap">
+                    <button type="button" id="inv-filter-btn" class="np-button np-pill-sm" onclick="toggleInvFilterMenu(event)">
+                        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">filter_list</span>
+                        Filtrar
+                    </button>
+                    <div class="meta-kebab-menu hidden" id="inv-filter-menu">
+                        <button type="button" data-filter="TODOS" onclick="seleccionarFiltroInv('TODOS')">Todos</button>
+                        <button type="button" data-filter="ACCIONES" onclick="seleccionarFiltroInv('ACCIONES')">Acciones</button>
+                        <button type="button" data-filter="BONOS" onclick="seleccionarFiltroInv('BONOS')">Bonos</button>
+                        <button type="button" data-filter="ORO" onclick="seleccionarFiltroInv('ORO')">Oro</button>
+                        <button type="button" data-filter="OTRO" onclick="seleccionarFiltroInv('OTRO')">Otro</button>
+                    </div>
+                </div>
+            </div>
+            <div id="inv-posiciones-list" class="inv-posiciones-list"></div>
+
             <div id="modal-inversion" class="modal hidden">
-                <div class="modal-content">
+                <div class="modal-content np-form">
                     <h2 id="modal-inv-title">Nueva Inversión</h2>
                     <form id="form-inversion">
                         <input type="hidden" id="inv-id">

@@ -24,6 +24,16 @@ function progressBar(pct, color) {
     </div>`;
 }
 
+function emptyState({ icon, title, text, actionLabel, actionOnClick }) {
+    return `
+    <div class="empty-state">
+        <div class="empty-state-icon">${icon}</div>
+        <div class="empty-state-title">${title}</div>
+        ${text ? `<p class="empty-state-text">${text}</p>` : ''}
+        ${actionLabel ? `<button type="button" class="btn btn-primary" onclick="${actionOnClick}">${actionLabel}</button>` : ''}
+    </div>`;
+}
+
 function fillAnioSelect(sel, selected) {
     const now = new Date();
     sel.innerHTML = '';
@@ -48,9 +58,39 @@ function fillMesSelect(sel, selected) {
     });
 }
 
+function buildDonut(segments, { size = 180, stroke = 20 } = {}) {
+    const r = (size - stroke) / 2;
+    const cx = size / 2, cy = size / 2;
+    const circumference = 2 * Math.PI * r;
+    const total = segments.reduce((s, seg) => s + seg.value, 0);
+    if (total <= 0) return '';
+    let offset = 0;
+    const circles = segments.filter(s => s.value > 0).map(seg => {
+        const frac = seg.value / total;
+        const dash = frac * circumference;
+        const circle = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${stroke}" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="${-offset}" stroke-linecap="round"/>`;
+        offset += dash;
+        return circle;
+    }).join('');
+    return `
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+        <g transform="rotate(-90 ${cx} ${cy})">
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+            ${circles}
+        </g>
+    </svg>`;
+}
+
 const TIPO_COLORS = {
-    ACCIONES: '#4038c8',
-    ORO: '#d4a024',
-    BONOS: '#3d7a5c',
-    OTRO: '#8a7a6a',
+    ACCIONES: '#0F172A',
+    ORO: '#B45309',
+    BONOS: '#0D9488',
+    OTRO: '#64748B',
+};
+
+const TIPO_ICONS = {
+    ACCIONES: 'trending_up',
+    ORO: 'paid',
+    BONOS: 'description',
+    OTRO: 'category',
 };

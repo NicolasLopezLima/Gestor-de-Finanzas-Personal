@@ -31,6 +31,9 @@ public class MetaFinanciera {
     @Column(nullable = false)
     private EstadoMeta estado = EstadoMeta.ACTIVA;
 
+    @Column(length = 50)
+    private String icono;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
@@ -50,6 +53,8 @@ public class MetaFinanciera {
     public void setFechaFin(LocalDate fechaFin) { this.fechaFin = fechaFin; }
     public EstadoMeta getEstado() { return estado; }
     public void setEstado(EstadoMeta estado) { this.estado = estado; }
+    public String getIcono() { return icono; }
+    public void setIcono(String icono) { this.icono = icono; }
     public Usuario getUsuario() { return usuario; }
     public void setUsuario(Usuario usuario) { this.usuario = usuario; }
 }
