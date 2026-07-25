@@ -127,46 +127,62 @@
             <button type="button" id="btn-nueva-transaccion" class="np-fab" title="Agregar transacción">+</button>
 
             <div id="modal-transaccion" class="modal hidden">
-                <div class="modal-content">
+                <div class="modal-content tx-modal-content">
                     <div class="modal-header">
                         <h2>Nueva Transacción</h2>
                         <button type="button" id="btn-cerrar-transaccion" class="btn-icon" style="font-size:20px">✕</button>
                     </div>
-                    <form id="form-transaccion">
-                        <div class="form-group">
-                            <label>Descripción</label>
-                            <input type="text" id="t-descripcion" required>
+                    <form id="form-transaccion" class="tx-form">
+                        <div class="tipo-toggle np-inset">
+                            <button type="button" class="tipo-btn active" data-value="INGRESO">
+                                <span class="material-symbols-outlined tipo-icon">arrow_upward</span> Ingreso
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="GASTO">
+                                <span class="material-symbols-outlined tipo-icon">arrow_downward</span> Gasto
+                            </button>
                         </div>
+                        <input type="hidden" id="t-tipo" value="INGRESO">
+
                         <div class="form-group">
-                            <label>Monto</label>
-                            <input type="number" id="t-monto" min="0.01" step="0.01" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Tipo</label>
-                            <div class="tipo-toggle">
-                                <button type="button" class="tipo-btn active" data-value="INGRESO">
-                                    <span class="tipo-icon">↑</span> Ingreso
-                                </button>
-                                <button type="button" class="tipo-btn" data-value="GASTO">
-                                    <span class="tipo-icon">↓</span> Gasto
-                                </button>
+                            <label class="np-label-sm">Monto</label>
+                            <div class="np-inset tx-field tx-field-amount">
+                                <span class="tx-amount-prefix">$</span>
+                                <input type="number" id="t-monto" min="0.01" step="0.01" placeholder="0.00" required>
                             </div>
-                            <input type="hidden" id="t-tipo" value="INGRESO">
                         </div>
+
                         <div class="form-group">
-                            <label>Categoría</label>
-                            <select id="t-categoria" required>
-                                <option value="">— Seleccionar —</option>
-                            </select>
+                            <label class="np-label-sm">Descripción</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">edit_note</span>
+                                <input type="text" id="t-descripcion" placeholder="¿En qué gastaste?" required>
+                            </div>
                         </div>
+
                         <div class="form-group">
-                            <label>Día del mes</label>
-                            <div class="fecha-dia-wrapper">
+                            <label class="np-label-sm">Categoría</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">sell</span>
+                                <select id="t-categoria" required>
+                                    <option value="">— Seleccionar —</option>
+                                </select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="np-label-sm">Día del mes</label>
+                            <div class="np-flat tx-field fecha-dia-wrapper">
+                                <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
                                 <span id="fecha-mes-label" class="fecha-mes-label"></span>
                                 <input type="number" id="t-dia" min="1" max="31" placeholder="Día" required>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary" style="width:100%">Agregar</button>
+
+                        <button type="submit" class="tx-submit-btn">
+                            <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">check_circle</span>
+                            Registrar Transacción
+                        </button>
                     </form>
                 </div>
             </div>

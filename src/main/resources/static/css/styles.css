@@ -41,8 +41,6 @@ body[data-dark-mode="true"] .form-group textarea,
 body[data-dark-mode="true"] .asig-row input,
 body[data-dark-mode="true"] .asig-row select,
 body[data-dark-mode="true"] .tab,
-body[data-dark-mode="true"] .tipo-btn,
-body[data-dark-mode="true"] .fecha-dia-wrapper,
 body[data-dark-mode="true"] .periodo-selector select,
 body[data-dark-mode="true"] .modal-content {
     background: var(--card-bg);
@@ -1724,75 +1722,159 @@ tr:hover td { background: var(--primary-light) !important; }
 .btn-icon { background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px 6px; }
 .btn-icon:hover { opacity: .7; }
 
-/* Tipo toggle */
+/* ── Modal Nueva Transacción (Neumorphic) ─────────────────────────────── */
+.tx-modal-content {
+    background: #f8f9ff;
+    max-width: 480px;
+}
+
+.tx-form { display: flex; flex-direction: column; gap: 0; }
+.tx-form .form-group { margin-bottom: 16px; }
+
+.tx-form .form-group label.np-label-sm {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #45464d;
+    margin-bottom: 6px;
+    padding: 0 4px;
+}
+
+/* Tipo toggle: pill segmentado, estado activo "presionado" (inset) */
 .tipo-toggle {
     display: flex;
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 99px;
+    margin-bottom: 18px;
 }
 
 .tipo-btn {
     flex: 1;
-    padding: 10px 0;
+    padding: 12px 0;
     border: none;
-    background: #fff;
+    border-radius: 99px;
+    background: transparent;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    color: var(--text-muted);
-    transition: all .2s;
+    color: #45464d;
+    transition: all .2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
 }
 
-.tipo-btn:first-child { border-right: 1px solid var(--border); }
+.tipo-btn .tipo-icon { font-size: 18px; }
 
-.tipo-btn.active[data-value="INGRESO"] {
-    background: #D1FAE5;
-    color: #065F46;
+.tipo-btn.active {
+    background: #f8f9ff;
+    box-shadow: inset 3px 3px 6px rgba(15,23,42,.1), inset -3px -3px 6px #ffffff;
 }
 
-.tipo-btn.active[data-value="GASTO"] {
-    background: #FFE4E6;
-    color: #9F1239;
+.tipo-btn.active[data-value="INGRESO"] { color: var(--success); }
+.tipo-btn.active[data-value="GASTO"] { color: var(--danger); }
+
+/* Campos: quitar el estilo bordeado genérico de .form-group, lo reemplaza el wrapper np-* */
+.tx-form .form-group input,
+.tx-form .form-group select {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    width: 100%;
+    font-size: 15px;
 }
 
-.tipo-icon {
-    font-size: 16px;
-    font-weight: 800;
+.tx-form .form-group input:focus,
+.tx-form .form-group select:focus {
+    outline: none;
+    box-shadow: none;
 }
 
-/* Fecha día */
-.fecha-dia-wrapper {
+.tx-field {
     display: flex;
     align-items: center;
     gap: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    background: #fff;
+    border-radius: 14px;
+    padding: 14px 16px;
 }
 
+.tx-field-icon { color: #45464d; font-size: 20px; flex-shrink: 0; }
+.tx-field-chevron { color: #45464d; font-size: 20px; flex-shrink: 0; }
+
+.tx-field select { cursor: pointer; appearance: none; -webkit-appearance: none; }
+
+.tx-field-amount {
+    padding: 18px 20px;
+    transition: box-shadow .2s ease;
+}
+
+.tx-field-amount:focus-within {
+    box-shadow: inset 4px 4px 8px rgba(15,23,42,.1), inset -4px -4px 8px #ffffff, 0 0 0 3px rgba(16,185,129,.2);
+}
+
+.tx-form .np-flat.tx-field {
+    transition: box-shadow .2s ease;
+}
+
+.tx-form .np-flat.tx-field:focus-within {
+    box-shadow: 3px 3px 8px rgba(15,23,42,.08), -3px -3px 8px #ffffff, 0 0 0 3px rgba(16,185,129,.15);
+}
+
+.tx-amount-prefix {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--success);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+}
+
+.tx-field-amount input {
+    font-size: 26px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+/* Fecha día (reutiliza .tx-field, agrega layout específico) */
 .fecha-mes-label {
     font-size: 13px;
-    color: var(--text-muted);
+    color: #45464d;
     white-space: nowrap;
     flex: 1;
 }
 
 .fecha-dia-wrapper input[type="number"] {
-    width: 60px;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    width: 50px;
     text-align: center;
     flex-shrink: 0;
+}
+
+/* Botón de registrar */
+.tx-submit-btn {
+    width: 100%;
+    margin-top: 18px;
+    padding: 16px 0;
+    border: none;
+    border-radius: 99px;
+    background: var(--success);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 6px 6px 14px rgba(16,185,129,.3), -4px -4px 12px #ffffff;
+    transition: all .2s ease;
+}
+
+.tx-submit-btn:active {
+    box-shadow: inset 4px 4px 8px rgba(0,60,40,.35), inset -4px -4px 8px rgba(255,255,255,.15);
+    transform: scale(.98);
 }
 
 .dash-grid { display: block; }
