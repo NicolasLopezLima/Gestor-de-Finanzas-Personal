@@ -117,6 +117,17 @@
             </div>
             <div class="summary-bar" id="summary-bar"></div>
 
+            <div class="tx-import-toolbar">
+                <button type="button" id="btn-descargar-plantilla" class="np-button np-pill np-pill-sm">
+                    <span class="material-symbols-outlined">download</span> Descargar plantilla
+                </button>
+                <button type="button" id="btn-importar-excel" class="np-button np-pill np-pill-sm">
+                    <span class="material-symbols-outlined">upload_file</span> Importar Excel
+                </button>
+                <input type="file" id="input-importar-excel" accept=".xlsx,.xls,.ods,.csv" hidden>
+                <small class="tx-import-hint">La plantilla incluye tus movimientos actuales del período. Si la volvés a importar sin editarla, se van a duplicar. Formatos aceptados para importar: .xlsx, .xls, .ods, .csv.</small>
+            </div>
+
             <div class="np-tabs">
                 <button class="tab np-tab active" data-filter="todos">Todos</button>
                 <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
@@ -183,6 +194,106 @@
                             <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">check_circle</span>
                             Registrar Transacción
                         </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="modal-import-errores" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>No se pudo importar el archivo</h2>
+                        <button type="button" id="btn-cerrar-import-errores" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
+                    <p id="import-error-summary"></p>
+                    <div id="import-error-list" class="tx-import-error-list"></div>
+                </div>
+            </div>
+
+            <div id="modal-conflictos-import" class="modal hidden">
+                <div class="modal-content modal-conflictos-content">
+                    <div class="modal-header">
+                        <h2>Se encontraron posibles duplicados</h2>
+                        <button type="button" id="btn-cerrar-conflictos-import" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
+                    <p class="conflictos-intro">Estas filas del Excel coinciden en fecha, descripción y monto con transacciones que ya existen en este período. Elegí qué hacer con cada una.</p>
+                    <div id="conflictos-list" class="conflictos-list"></div>
+                    <div class="conflictos-preview">
+                        <h3>Vista previa del resultado</h3>
+                        <div id="conflictos-preview-list" class="conflictos-preview-list"></div>
+                    </div>
+                    <div class="modal-actions conflictos-footer">
+                        <span id="conflictos-progreso" class="conflictos-progreso"></span>
+                        <button type="button" id="btn-confirmar-import" class="np-button np-pill" disabled>Confirmar importación</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="modal-mapeo-import" class="modal hidden">
+                <div class="modal-content tx-modal-content modal-mapeo-content">
+                    <div class="modal-header">
+                        <h2>Este archivo no coincide con nuestra plantilla</h2>
+                        <button type="button" id="btn-cerrar-mapeo-import" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
+                    <p class="mapeo-intro">Detectamos estas columnas en tu archivo. Indicanos qué representa cada una.</p>
+                    <form id="form-mapeo-import" class="tx-form">
+                        <div class="form-group">
+                            <label for="mapeo-desc-ingreso" class="np-label-sm">Descripción de Ingresos</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">arrow_upward</span>
+                                <select id="mapeo-desc-ingreso"></select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="mapeo-monto-ingreso-tabla" class="np-label-sm">Monto de Ingresos</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">arrow_upward</span>
+                                <select id="mapeo-monto-ingreso-tabla"></select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="mapeo-desc-gasto" class="np-label-sm">Descripción de Gastos</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">arrow_downward</span>
+                                <select id="mapeo-desc-gasto"></select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="mapeo-monto-gasto-tabla" class="np-label-sm">Monto de Gastos</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">arrow_downward</span>
+                                <select id="mapeo-monto-gasto-tabla"></select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                            <p class="mapeo-hint">Cada lista se importa por separado, con su propio largo. Las columnas que no mapeés (por ejemplo, totales) se ignoran.</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mapeo-fecha" class="np-label-sm">Fecha</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
+                                <select id="mapeo-fecha"></select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                            <p class="mapeo-hint">Si no la tenés, se usará el 1° del período que estás importando.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="mapeo-categoria" class="np-label-sm">Categoría</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">sell</span>
+                                <select id="mapeo-categoria"></select>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                            <p class="mapeo-hint">Si no la tenés, se usará "Sin categoría".</p>
+                        </div>
+
+                        <label class="mapeo-recordar"><input type="checkbox" id="mapeo-recordar"> Recordar este mapeo para la próxima vez</label>
+
+                        <div class="modal-actions">
+                            <button type="submit" class="np-button np-pill">Importar con este mapeo</button>
+                        </div>
                     </form>
                 </div>
             </div>
