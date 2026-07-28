@@ -95,6 +95,24 @@ public class PeriodoServiceImpl implements PeriodoService {
     }
 
     @Override
+    public TransaccionDTO editarTransaccion(Long transaccionId, TransaccionDTO dto, Long usuarioId) {
+        Transaccion t = transaccionRepo.findById(transaccionId)
+                .orElseThrow(() -> new IllegalArgumentException("Transaccion no encontrada: " + transaccionId));
+        if (!t.getPeriodo().getUsuario().getId().equals(usuarioId)) {
+            throw new IllegalStateException("No autorizado");
+        }
+        if (t.getPeriodo().isCerrado()) {
+            throw new IllegalStateException("No se puede editar una transacción de un periodo cerrado.");
+        }
+        t.setDescripcion(dto.getDescripcion());
+        t.setMonto(dto.getMonto());
+        t.setTipo(dto.getTipo());
+        t.setCategoria(dto.getCategoria());
+        t.setFecha(dto.getFecha());
+        return toDTO(transaccionRepo.save(t));
+    }
+
+    @Override
     public void eliminarTransaccion(Long transaccionId, Long usuarioId) {
         Transaccion t = transaccionRepo.findById(transaccionId)
                 .orElseThrow(() -> new IllegalArgumentException("Transaccion no encontrada: " + transaccionId));

@@ -40,6 +40,7 @@ const api = {
     getPeriodo: (a, m) => request('GET', `/periodos/${a}/${m}`),
     listarPeriodos: () => request('GET', '/periodos'),
     agregarTransaccion: (a, m, dto) => request('POST', `/periodos/${a}/${m}/transacciones`, dto),
+    editarTransaccion: (id, dto) => request('PUT', `/periodos/transacciones/${id}`, dto),
     eliminarTransaccion: (id) => request('DELETE', `/periodos/transacciones/${id}`),
     cerrarPeriodo: (a, m) => request('POST', `/periodos/${a}/${m}/cerrar`),
     importarTransacciones: (a, m, formData) => requestMultipart('POST', `/periodos/${a}/${m}/transacciones/importar`, formData),

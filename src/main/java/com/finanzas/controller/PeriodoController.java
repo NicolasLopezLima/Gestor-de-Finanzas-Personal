@@ -50,6 +50,14 @@ public class PeriodoController {
         return ResponseEntity.ok(periodoService.agregarTransaccion(anio, mes, dto, uid));
     }
 
+    @PutMapping("/transacciones/{id}")
+    public ResponseEntity<TransaccionDTO> editarTransaccion(
+            @PathVariable Long id,
+            @Valid @RequestBody TransaccionDTO dto) {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        return ResponseEntity.ok(periodoService.editarTransaccion(id, dto, uid));
+    }
+
     @DeleteMapping("/transacciones/{id}")
     public ResponseEntity<Void> eliminarTransaccion(@PathVariable Long id) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();

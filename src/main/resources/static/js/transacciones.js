@@ -23,15 +23,15 @@ const CATEGORIA_ICONS = {
 };
 
 async function initTransacciones() {
-    fillAnioSelect(document.getElementById('periodo-anio'));
-    fillMesSelect(document.getElementById('periodo-mes'));
+    fillAnioCustomSelect('periodo-anio');
+    fillMesCustomSelect('periodo-mes');
 
     document.getElementById('periodo-anio').addEventListener('change', cargarPeriodo);
     document.getElementById('periodo-mes').addEventListener('change', cargarPeriodo);
     document.getElementById('btn-cerrar-periodo').addEventListener('click', cerrarPeriodo);
     document.getElementById('form-transaccion').addEventListener('submit', onAgregarTransaccion);
 
-    document.getElementById('btn-nueva-transaccion').addEventListener('click', abrirModalTransaccion);
+    document.getElementById('btn-nueva-transaccion').addEventListener('click', () => abrirModalTransaccion());
     document.getElementById('btn-cerrar-transaccion').addEventListener('click', cerrarModalTransaccion);
     document.getElementById('modal-transaccion').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-transaccion')) cerrarModalTransaccion();
@@ -83,22 +83,44 @@ async function initTransacciones() {
 }
 
 function actualizarCategorias(tipo) {
-    const sel = document.getElementById('t-categoria');
-    const prev = sel.value;
-    sel.innerHTML = '<option value="">— Seleccionar —</option>';
-    (CATEGORIAS[tipo] || []).forEach(cat => {
-        const o = document.createElement('option');
-        o.value = cat;
-        o.textContent = cat;
-        if (cat === prev) o.selected = true;
-        sel.appendChild(o);
-    });
+    const prev = document.getElementById('t-categoria').value;
+    const categorias = CATEGORIAS[tipo] || [];
+    crearCustomSelect('t-categoria', categorias, '— Seleccionar —');
+    if (categorias.includes(prev)) document.getElementById('t-categoria').value = prev;
 }
 
-function abrirModalTransaccion() {
+function abrirModalTransaccion(id) {
     if (periodoActual?.cerrado) return;
+
+    document.getElementById('form-transaccion').reset();
+    document.getElementById('t-id').value = '';
+    document.getElementById('modal-transaccion-title').textContent = 'Nueva Transacción';
+    document.getElementById('tx-submit-btn-label').textContent = 'Registrar Transacción';
+    document.getElementById('t-dia').value = new Date().getDate();
+
+    let tipo = 'INGRESO';
+    const t = id ? (periodoActual?.transacciones || []).find(x => x.id === id) : null;
+    if (t) {
+        document.getElementById('modal-transaccion-title').textContent = 'Editar Transacción';
+        document.getElementById('tx-submit-btn-label').textContent = 'Guardar cambios';
+        document.getElementById('t-id').value = t.id;
+        document.getElementById('t-monto').value = t.monto;
+        document.getElementById('t-descripcion').value = t.descripcion;
+        document.getElementById('t-dia').value = +t.fecha.slice(8, 10);
+        tipo = t.tipo;
+    }
+
+    document.querySelectorAll('.tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
+    document.getElementById('t-tipo').value = tipo;
+    actualizarCategorias(tipo);
+    if (t) document.getElementById('t-categoria').value = t.categoria;
+
     document.getElementById('modal-transaccion').classList.remove('hidden');
     document.getElementById('t-descripcion').focus();
+}
+
+function editarTransaccion(id) {
+    abrirModalTransaccion(id);
 }
 
 function cerrarModalTransaccion() {
@@ -226,7 +248,9 @@ function renderTabla() {
                     </div>
                     <div class="tx-row-right">
                         <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
-                        ${periodoActual.cerrado ? '' : `<button class="btn-icon" onclick="eliminarTransaccion(${t.id})">🗑</button>`}
+                        ${periodoActual.cerrado ? '' : `
+                            <button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>
+                            <button class="btn-icon" onclick="eliminarTransaccion(${t.id})">🗑</button>`}
                     </div>
                 </div>`).join('')}
         </div>`).join('');
@@ -257,15 +281,24 @@ async function onAgregarTransaccion(e) {
         categoria,
         fecha,
     };
+    const id = document.getElementById('t-id').value;
     try {
-        await api.agregarTransaccion(anio, mes, dto);
+        if (id) {
+            await api.editarTransaccion(+id, dto);
+        } else {
+            await api.agregarTransaccion(anio, mes, dto);
+        }
         periodoActual = await api.getPeriodo(anio, mes);
         renderPeriodo();
-        // Resetear solo descripción y monto, mantener tipo/categoría/día
-        document.getElementById('t-descripcion').value = '';
-        document.getElementById('t-monto').value = '';
-        cerrarModalTransaccion();
-        showToast('Transacción agregada');
+        if (id) {
+            cerrarModalTransaccion();
+        } else {
+            // Resetear solo descripción y monto, mantener tipo/categoría/día
+            document.getElementById('t-descripcion').value = '';
+            document.getElementById('t-monto').value = '';
+            cerrarModalTransaccion();
+        }
+        showToast(id ? 'Transacción actualizada' : 'Transacción agregada');
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -468,18 +501,17 @@ async function onConfirmarImportacion() {
 }
 
 // ── Asistente de mapeo de columnas (archivos que no siguen la plantilla) ────
+// crearCustomSelect/cerrarCustomSelects viven en utils.js (se reutilizan en
+// todos los desplegables de la app, no solo en este asistente).
 
 function abrirModalMapeo(anio, mes, encabezados) {
     mapeoContexto = { anio, mes };
-    const opcionesObligatorias = '<option value="">— Seleccionar —</option>' +
-        encabezados.map(h => `<option value="${h}">${h}</option>`).join('');
-    const opcionesOpcionales = '<option value="">— No tengo esta columna —</option>' +
-        encabezados.map(h => `<option value="${h}">${h}</option>`).join('');
+    const encabezadosConNombre = encabezados.filter(h => h && h.trim());
 
-    document.getElementById('mapeo-fecha').innerHTML = opcionesOpcionales;
-    document.getElementById('mapeo-categoria').innerHTML = opcionesOpcionales;
+    crearCustomSelect('mapeo-fecha', encabezadosConNombre, '— No tengo esta columna —');
+    crearCustomSelect('mapeo-categoria', encabezadosConNombre, '— No tengo esta columna —');
     ['mapeo-desc-ingreso', 'mapeo-monto-ingreso-tabla', 'mapeo-desc-gasto', 'mapeo-monto-gasto-tabla'].forEach(id => {
-        document.getElementById(id).innerHTML = opcionesObligatorias;
+        crearCustomSelect(id, encabezadosConNombre, '— Seleccionar —');
     });
 
     document.getElementById('mapeo-recordar').checked = false;
@@ -487,6 +519,7 @@ function abrirModalMapeo(anio, mes, encabezados) {
 }
 
 function cerrarModalMapeo() {
+    cerrarCustomSelects();
     document.getElementById('modal-mapeo-import').classList.add('hidden');
     mapeoContexto = null;
     archivoPendienteImportacion = null;
