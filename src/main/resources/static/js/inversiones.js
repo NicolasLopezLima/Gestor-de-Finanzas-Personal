@@ -194,6 +194,8 @@ function abrirModalInv(id) {
     document.getElementById('form-inversion').reset();
     document.getElementById('inv-id').value = '';
     document.getElementById('modal-inv-title').textContent = 'Nueva Inversión';
+    crearCustomSelect('inv-tipo',
+        Object.entries(TIPO_LABELS).map(([valor, texto]) => ({ valor, texto })), null);
 
     if (id) {
         const inv = inversiones.find(x => x.id === id);

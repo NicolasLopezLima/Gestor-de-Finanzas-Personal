@@ -110,8 +110,16 @@
             <div class="page-header">
                 <h1>Ingresos & Gastos</h1>
                 <div class="periodo-selector">
-                    <select id="periodo-anio"></select>
-                    <select id="periodo-mes"></select>
+                    <div class="np-flat tx-field">
+                        <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
+                        <div id="periodo-anio" class="custom-select"></div>
+                        <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                    </div>
+                    <div class="np-flat tx-field">
+                        <span class="material-symbols-outlined tx-field-icon">calendar_month</span>
+                        <div id="periodo-mes" class="custom-select"></div>
+                        <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                    </div>
                     <button id="btn-cerrar-periodo" class="np-button np-pill">Cerrar Periodo</button>
                 </div>
             </div>
@@ -140,10 +148,11 @@
             <div id="modal-transaccion" class="modal hidden">
                 <div class="modal-content tx-modal-content">
                     <div class="modal-header">
-                        <h2>Nueva Transacción</h2>
+                        <h2 id="modal-transaccion-title">Nueva Transacción</h2>
                         <button type="button" id="btn-cerrar-transaccion" class="btn-icon" style="font-size:20px">✕</button>
                     </div>
                     <form id="form-transaccion" class="tx-form">
+                        <input type="hidden" id="t-id">
                         <div class="tipo-toggle np-inset">
                             <button type="button" class="tipo-btn active" data-value="INGRESO">
                                 <span class="material-symbols-outlined tipo-icon">arrow_upward</span> Ingreso
@@ -174,9 +183,7 @@
                             <label class="np-label-sm">Categoría</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">sell</span>
-                                <select id="t-categoria" required>
-                                    <option value="">— Seleccionar —</option>
-                                </select>
+                                <div id="t-categoria" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                         </div>
@@ -192,7 +199,7 @@
 
                         <button type="submit" class="tx-submit-btn">
                             <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">check_circle</span>
-                            Registrar Transacción
+                            <span id="tx-submit-btn-label">Registrar Transacción</span>
                         </button>
                     </form>
                 </div>
@@ -240,7 +247,7 @@
                             <label for="mapeo-desc-ingreso" class="np-label-sm">Descripción de Ingresos</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">arrow_upward</span>
-                                <select id="mapeo-desc-ingreso"></select>
+                                <div id="mapeo-desc-ingreso" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                         </div>
@@ -248,7 +255,7 @@
                             <label for="mapeo-monto-ingreso-tabla" class="np-label-sm">Monto de Ingresos</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">arrow_upward</span>
-                                <select id="mapeo-monto-ingreso-tabla"></select>
+                                <div id="mapeo-monto-ingreso-tabla" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                         </div>
@@ -256,7 +263,7 @@
                             <label for="mapeo-desc-gasto" class="np-label-sm">Descripción de Gastos</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">arrow_downward</span>
-                                <select id="mapeo-desc-gasto"></select>
+                                <div id="mapeo-desc-gasto" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                         </div>
@@ -264,7 +271,7 @@
                             <label for="mapeo-monto-gasto-tabla" class="np-label-sm">Monto de Gastos</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">arrow_downward</span>
-                                <select id="mapeo-monto-gasto-tabla"></select>
+                                <div id="mapeo-monto-gasto-tabla" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                             <p class="mapeo-hint">Cada lista se importa por separado, con su propio largo. Las columnas que no mapeés (por ejemplo, totales) se ignoran.</p>
@@ -274,7 +281,7 @@
                             <label for="mapeo-fecha" class="np-label-sm">Fecha</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
-                                <select id="mapeo-fecha"></select>
+                                <div id="mapeo-fecha" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                             <p class="mapeo-hint">Si no la tenés, se usará el 1° del período que estás importando.</p>
@@ -283,7 +290,7 @@
                             <label for="mapeo-categoria" class="np-label-sm">Categoría</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">sell</span>
-                                <select id="mapeo-categoria"></select>
+                                <div id="mapeo-categoria" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
                             <p class="mapeo-hint">Si no la tenés, se usará "Sin categoría".</p>
@@ -303,8 +310,16 @@
             <div class="page-header">
                 <h1>Presupuesto Mensual</h1>
                 <div class="periodo-selector">
-                    <select id="p-anio"></select>
-                    <select id="p-mes"></select>
+                    <div class="np-flat tx-field">
+                        <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
+                        <div id="p-anio" class="custom-select"></div>
+                        <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                    </div>
+                    <div class="np-flat tx-field">
+                        <span class="material-symbols-outlined tx-field-icon">calendar_month</span>
+                        <div id="p-mes" class="custom-select"></div>
+                        <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                    </div>
                     <button id="btn-cargar-presupuesto" class="btn btn-secondary">Cargar</button>
                 </div>
             </div>
@@ -626,13 +641,12 @@
                             <input type="text" id="inv-nombre" required>
                         </div>
                         <div class="form-group">
-                            <label>Tipo</label>
-                            <select id="inv-tipo">
-                                <option value="ACCIONES">Acciones</option>
-                                <option value="ORO">Oro</option>
-                                <option value="BONOS">Bonos</option>
-                                <option value="OTRO">Otro</option>
-                            </select>
+                            <label class="np-label-sm">Tipo</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">pie_chart</span>
+                                <div id="inv-tipo" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Monto Invertido</label>

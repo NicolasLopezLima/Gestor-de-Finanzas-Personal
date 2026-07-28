@@ -31,6 +31,23 @@ document.querySelectorAll('.nav-links a, .bottom-nav a').forEach(a => {
     });
 });
 
+// Los campos ".tx-field" muestran un ícono y un chevron como decoración junto al
+// select/input real; como son elementos hermanos (no el control en sí), un click
+// justo sobre el ícono no abre el desplegable. Delegamos ese click al control interno.
+// (Los custom-select del asistente de mapeo manejan su propio click sobre todo el
+// campo directamente en transacciones.js, no dependen de este listener.)
+document.addEventListener('click', e => {
+    if (e.target.closest('select, input')) return;
+    const campo = e.target.closest('.tx-field');
+    if (!campo) return;
+    const control = campo.querySelector('select, input');
+    if (!control) return;
+    control.focus();
+    if (control.tagName === 'SELECT' && typeof control.showPicker === 'function') {
+        control.showPicker();
+    }
+});
+
 // Cargar nombre del usuario logueado
 fetch('/api/auth/me')
     .then(r => {

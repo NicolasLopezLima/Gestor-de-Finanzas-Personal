@@ -10,8 +10,8 @@ const TIPOS_FIJOS = [
 const PIE_COLORS = ['#0F172A','#10B981','#475569','#0D9488','#B45309','#94A3B8','#1E3A5F','#64748B'];
 
 async function initPresupuesto() {
-    fillAnioSelect(document.getElementById('p-anio'));
-    fillMesSelect(document.getElementById('p-mes'));
+    fillAnioCustomSelect('p-anio');
+    fillMesCustomSelect('p-mes');
 
     document.getElementById('btn-cargar-presupuesto').addEventListener('click', cargarPresupuesto);
     document.getElementById('btn-editar-presupuesto').addEventListener('click', abrirModalPresupuesto);

@@ -34,28 +34,111 @@ function emptyState({ icon, title, text, actionLabel, actionOnClick }) {
     </div>`;
 }
 
-function fillAnioSelect(sel, selected) {
-    const now = new Date();
-    sel.innerHTML = '';
-    for (let y = now.getFullYear() - 2; y <= now.getFullYear() + 1; y++) {
-        const o = document.createElement('option');
-        o.value = y;
-        o.textContent = y;
-        if (y === (selected ?? now.getFullYear())) o.selected = true;
-        sel.appendChild(o);
-    }
+// ── Custom select: reemplaza el <select> nativo (popup no styleable entre
+// navegadores) por un disparador + panel propios, en todos los desplegables
+// de la app. Expone `.value` sobre el mismo elemento vía Object.defineProperty
+// para que el resto del código siga leyendo/escribiendo `.value` sin cambios,
+// y dispara un evento `change` real al elegir una opción (no en el set inicial),
+// para que `.addEventListener('change', ...)` siga funcionando igual que antes. ──
+
+let customSelectAbierto = null; // { panel, scrollCont, onScroll }
+
+/**
+ * @param {string} id
+ * @param {Array<string|{valor:string, texto:string}>} opciones
+ * @param {string|null} placeholder — si se pasa, agrega una opción en blanco al
+ *   principio y el valor inicial queda vacío; si es null/undefined, no hay opción
+ *   en blanco y el valor inicial es el de la primera opción real (como un <select>
+ *   nativo sin placeholder).
+ */
+function crearCustomSelect(id, opciones, placeholder) {
+    const el = document.getElementById(id);
+    el.innerHTML = `
+        <button type="button" class="custom-select-trigger">
+            <span class="custom-select-value"></span>
+        </button>
+        <div class="custom-select-panel hidden"></div>`;
+
+    const campo = el.closest('.tx-field') || el;
+    const valueSpan = el.querySelector('.custom-select-value');
+    const panel = el.querySelector('.custom-select-panel');
+
+    const opcionesNormalizadas = opciones.map(o => (typeof o === 'string' ? { valor: o, texto: o } : o));
+    const todasLasOpciones = placeholder
+        ? [{ valor: '', texto: placeholder }, ...opcionesNormalizadas]
+        : opcionesNormalizadas;
+    panel.innerHTML = todasLasOpciones.map(o =>
+        `<div class="custom-select-option" data-valor="${o.valor}">${o.texto}</div>`).join('');
+
+    let valorActual = '';
+    Object.defineProperty(el, 'value', {
+        configurable: true,
+        get: () => valorActual,
+        set: (v) => {
+            valorActual = v ?? '';
+            const opcion = todasLasOpciones.find(o => o.valor === valorActual);
+            valueSpan.textContent = opcion ? opcion.texto : (placeholder || '');
+            valueSpan.classList.toggle('custom-select-placeholder', !opcion);
+        },
+    });
+    el.value = placeholder ? '' : (todasLasOpciones[0]?.valor ?? '');
+
+    panel.querySelectorAll('.custom-select-option').forEach(opt => {
+        opt.addEventListener('click', e => {
+            e.stopPropagation();
+            el.value = opt.dataset.valor;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            cerrarCustomSelects();
+        });
+    });
+
+    // Un solo listener en TODO el campo (no solo el botón interno): así el ícono,
+    // el chevron y el relleno alrededor también abren el panel. stopPropagation
+    // evita que este mismo click siga hasta el listener global de "cerrar todo".
+    campo.addEventListener('click', e => {
+        e.stopPropagation();
+        const yaAbierto = customSelectAbierto?.panel === panel;
+        cerrarCustomSelects();
+        if (!yaAbierto) abrirCustomSelectPanel(panel, campo);
+    });
 }
 
-function fillMesSelect(sel, selected) {
+function abrirCustomSelectPanel(panel, campo) {
+    const r = campo.getBoundingClientRect();
+    panel.style.left = `${r.left}px`;
+    panel.style.top = `${r.bottom + 6}px`;
+    panel.style.width = `${r.width}px`;
+    panel.classList.remove('hidden');
+
+    const scrollCont = campo.closest('.modal-mapeo-content, .modal-content');
+    const onScroll = () => cerrarCustomSelects();
+    scrollCont?.addEventListener('scroll', onScroll, { once: true });
+    customSelectAbierto = { panel, scrollCont, onScroll };
+}
+
+function cerrarCustomSelects() {
+    if (!customSelectAbierto) return;
+    customSelectAbierto.panel.classList.add('hidden');
+    customSelectAbierto.scrollCont?.removeEventListener('scroll', customSelectAbierto.onScroll);
+    customSelectAbierto = null;
+}
+
+document.addEventListener('click', () => cerrarCustomSelects());
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarCustomSelects(); });
+
+function fillAnioCustomSelect(id, selected) {
     const now = new Date();
-    sel.innerHTML = '';
-    MESES.forEach((m, i) => {
-        const o = document.createElement('option');
-        o.value = i + 1;
-        o.textContent = m;
-        if ((i + 1) === (selected ?? now.getMonth() + 1)) o.selected = true;
-        sel.appendChild(o);
-    });
+    const anios = [];
+    for (let y = now.getFullYear() - 2; y <= now.getFullYear() + 1; y++) anios.push(String(y));
+    crearCustomSelect(id, anios, null);
+    document.getElementById(id).value = String(selected ?? now.getFullYear());
+}
+
+function fillMesCustomSelect(id, selected) {
+    const now = new Date();
+    const opciones = MESES.map((m, i) => ({ valor: String(i + 1), texto: m }));
+    crearCustomSelect(id, opciones, null);
+    document.getElementById(id).value = String(selected ?? now.getMonth() + 1);
 }
 
 function buildDonut(segments, { size = 180, stroke = 20 } = {}) {
