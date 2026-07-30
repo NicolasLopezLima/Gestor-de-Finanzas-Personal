@@ -19,9 +19,11 @@ import com.finanzas.model.ModoImporte;
 import com.finanzas.model.PeriodoMensual;
 import com.finanzas.model.TipoTransaccion;
 import com.finanzas.model.Transaccion;
+import com.finanzas.model.TransaccionFija;
 import com.finanzas.model.Usuario;
 import com.finanzas.repository.MapeoImportacionRepository;
 import com.finanzas.repository.PeriodoMensualRepository;
+import com.finanzas.repository.TransaccionFijaRepository;
 import com.finanzas.repository.TransaccionRepository;
 import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.PeriodoService;
@@ -33,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -47,40 +50,99 @@ public class PeriodoServiceImpl implements PeriodoService {
     private final UsuarioRepository usuarioRepo;
     private final TransaccionExcelService excelService;
     private final MapeoImportacionRepository mapeoRepo;
+    private final TransaccionFijaRepository transaccionFijaRepo;
 
     public PeriodoServiceImpl(PeriodoMensualRepository periodoRepo,
                               TransaccionRepository transaccionRepo,
                               UsuarioRepository usuarioRepo,
                               TransaccionExcelService excelService,
-                              MapeoImportacionRepository mapeoRepo) {
+                              MapeoImportacionRepository mapeoRepo,
+                              TransaccionFijaRepository transaccionFijaRepo) {
         this.periodoRepo = periodoRepo;
         this.transaccionRepo = transaccionRepo;
         this.usuarioRepo = usuarioRepo;
         this.excelService = excelService;
         this.mapeoRepo = mapeoRepo;
+        this.transaccionFijaRepo = transaccionFijaRepo;
     }
 
     @Override
     public PeriodoResumenDTO obtenerPeriodo(int anio, int mes, Long usuarioId) {
-        PeriodoMensual periodo = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
-                .orElseThrow(() -> new IllegalArgumentException("Periodo no encontrado: " + anio + "/" + mes));
+        PeriodoMensual periodo = obtenerOCrearPeriodo(anio, mes, usuarioId);
         return toResumenDTO(periodo);
     }
 
-    @Override
-    public TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto, Long usuarioId) {
+    /**
+     * Busca el período o lo crea si es la primera vez que se toca (mismo criterio que ya
+     * usaban agregarTransaccion/importar/confirmar, ahora unificado acá), y de paso genera
+     * las transacciones fijas del usuario que todavía no existan en ese período.
+     */
+    private PeriodoMensual obtenerOCrearPeriodo(int anio, int mes, Long usuarioId) {
         Usuario usuario = usuarioRepo.findById(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
-
         PeriodoMensual periodo = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
                 .orElseGet(() -> {
                     PeriodoMensual nuevo = new PeriodoMensual(anio, mes);
                     nuevo.setUsuario(usuario);
                     return periodoRepo.save(nuevo);
                 });
+        generarFijasPendientes(periodo, usuarioId);
+        return periodo;
+    }
+
+    /** Genera, si hace falta, la transacción de este período para cada fija activa del usuario. */
+    private void generarFijasPendientes(PeriodoMensual periodo, Long usuarioId) {
+        List<TransaccionFija> fijas = transaccionFijaRepo.findByUsuarioIdAndActivaTrue(usuarioId);
+        if (fijas.isEmpty()) return;
+
+        List<Transaccion> existentes = transaccionRepo.findByPeriodoId(periodo.getId());
+        int diasEnMes = YearMonth.of(periodo.getAnio(), periodo.getMes()).lengthOfMonth();
+
+        for (TransaccionFija fija : fijas) {
+            boolean esAnteriorAInicio = periodo.getAnio() < fija.getAnioInicio()
+                    || (periodo.getAnio() == fija.getAnioInicio() && periodo.getMes() < fija.getMesInicio());
+            if (esAnteriorAInicio) continue;
+
+            boolean yaGenerada = existentes.stream()
+                    .anyMatch(t -> t.getTransaccionFija() != null && t.getTransaccionFija().getId().equals(fija.getId()));
+            if (yaGenerada) continue;
+
+            Transaccion t = new Transaccion();
+            t.setDescripcion(fija.getDescripcion());
+            t.setMonto(fija.getMonto());
+            t.setTipo(fija.getTipo());
+            t.setCategoria(fija.getCategoria());
+            t.setFecha(LocalDate.of(periodo.getAnio(), periodo.getMes(), Math.min(fija.getDia(), diasEnMes)));
+            t.setPeriodo(periodo);
+            t.setTransaccionFija(fija);
+            transaccionRepo.save(t);
+        }
+    }
+
+    @Override
+    public TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto, Long usuarioId) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
+        PeriodoMensual periodo = obtenerOCrearPeriodo(anio, mes, usuarioId);
 
         if (periodo.isCerrado()) {
             throw new IllegalStateException("El periodo está cerrado y no acepta nuevas transacciones.");
+        }
+
+        LocalDate fecha = dto.getFecha() != null ? dto.getFecha() : LocalDate.now();
+
+        TransaccionFija fija = null;
+        if (dto.isRepetirTodosLosMeses()) {
+            fija = new TransaccionFija();
+            fija.setDescripcion(dto.getDescripcion());
+            fija.setMonto(dto.getMonto());
+            fija.setTipo(dto.getTipo());
+            fija.setCategoria(dto.getCategoria());
+            fija.setDia(fecha.getDayOfMonth());
+            fija.setAnioInicio(anio);
+            fija.setMesInicio(mes);
+            fija.setUsuario(usuario);
+            fija = transaccionFijaRepo.save(fija);
         }
 
         Transaccion t = new Transaccion();
@@ -88,10 +150,35 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setMonto(dto.getMonto());
         t.setTipo(dto.getTipo());
         t.setCategoria(dto.getCategoria());
-        t.setFecha(dto.getFecha() != null ? dto.getFecha() : LocalDate.now());
+        t.setFecha(fecha);
         t.setPeriodo(periodo);
+        t.setTransaccionFija(fija);
 
         return toDTO(transaccionRepo.save(t));
+    }
+
+    @Override
+    public void cancelarRecurrencia(Long transaccionId, Long usuarioId) {
+        Transaccion t = transaccionRepo.findById(transaccionId)
+                .orElseThrow(() -> new IllegalArgumentException("Transaccion no encontrada: " + transaccionId));
+        if (!t.getPeriodo().getUsuario().getId().equals(usuarioId)) {
+            throw new IllegalStateException("No autorizado");
+        }
+        TransaccionFija fija = t.getTransaccionFija();
+        if (fija == null) {
+            throw new IllegalStateException("Esta transacción no es una transacción fija.");
+        }
+        fija.setActiva(false);
+        transaccionFijaRepo.save(fija);
+
+        // Las instancias ya generadas para meses posteriores a este todavía no "pasaron" de
+        // verdad (se generaron solo porque el usuario miró ese período por adelantado) — se
+        // borran para que la recurrencia deje de verse a partir de acá. Los meses anteriores
+        // (incluido este) quedan intactos como transacciones normales.
+        List<Transaccion> futuras = transaccionRepo.findByTransaccionFijaId(fija.getId()).stream()
+                .filter(x -> x.getFecha().isAfter(t.getFecha()))
+                .collect(Collectors.toList());
+        transaccionRepo.deleteAll(futuras);
     }
 
     @Override
@@ -167,6 +254,7 @@ public class PeriodoServiceImpl implements PeriodoService {
         dto.setCategoria(t.getCategoria());
         dto.setFecha(t.getFecha());
         dto.setPeriodoId(t.getPeriodo().getId());
+        dto.setTransaccionFijaId(t.getTransaccionFija() != null ? t.getTransaccionFija().getId() : null);
         return dto;
     }
 
@@ -195,7 +283,7 @@ public class PeriodoServiceImpl implements PeriodoService {
 
         if (excelService.headerCoincideTemplate(encabezados)) {
             ImportParseResult resultado = excelService.parsearFilas(new ByteArrayInputStream(contenido), nombreArchivo, anio, mes);
-            return procesarResultadoImportacion(resultado, anio, mes, usuario, periodoExistente);
+            return procesarResultadoImportacion(resultado, anio, mes, usuario);
         }
 
         String firma = excelService.firmaEncabezados(encabezados);
@@ -206,7 +294,7 @@ public class PeriodoServiceImpl implements PeriodoService {
                     m.getColumnaMonto(), m.getColumnaTipo(), m.getTipoFijo(), m.getColumnaMontoIngreso(), m.getColumnaMontoGasto(),
                     m.getColumnaDescripcionIngreso(), m.getColumnaDescripcionGasto());
             ImportParseResult resultado = parsearConMapeo(contenido, nombreArchivo, anio, mes, encabezados, modoDe(m), campos);
-            return procesarResultadoImportacion(resultado, anio, mes, usuario, periodoExistente);
+            return procesarResultadoImportacion(resultado, anio, mes, usuario);
         }
 
         return ImportacionResponseDTO.requiereMapeo(encabezados);
@@ -237,7 +325,7 @@ public class PeriodoServiceImpl implements PeriodoService {
                 seleccion.getColumnaMontoGasto(), seleccion.getColumnaDescripcionIngreso(), seleccion.getColumnaDescripcionGasto());
 
         ImportParseResult resultado = parsearConMapeo(contenido, nombreArchivo, anio, mes, encabezados, seleccion.getModoImporte(), campos);
-        ImportacionResponseDTO respuesta = procesarResultadoImportacion(resultado, anio, mes, usuario, periodoExistente);
+        ImportacionResponseDTO respuesta = procesarResultadoImportacion(resultado, anio, mes, usuario);
 
         if (seleccion.isRecordarMapeo()) {
             String firma = excelService.firmaEncabezados(encabezados);
@@ -347,8 +435,7 @@ public class PeriodoServiceImpl implements PeriodoService {
         }
     }
 
-    private ImportacionResponseDTO procesarResultadoImportacion(ImportParseResult resultado, int anio, int mes,
-                                                                  Usuario usuario, Optional<PeriodoMensual> periodoExistente) {
+    private ImportacionResponseDTO procesarResultadoImportacion(ImportParseResult resultado, int anio, int mes, Usuario usuario) {
         if (resultado.totalFilasLeidas() == 0) {
             throw new ImportValidationException("El archivo no contiene transacciones para importar.", List.of());
         }
@@ -358,11 +445,7 @@ public class PeriodoServiceImpl implements PeriodoService {
                     resultado.errores());
         }
 
-        PeriodoMensual periodo = periodoExistente.orElseGet(() -> {
-            PeriodoMensual nuevo = new PeriodoMensual(anio, mes);
-            nuevo.setUsuario(usuario);
-            return periodoRepo.save(nuevo);
-        });
+        PeriodoMensual periodo = obtenerOCrearPeriodo(anio, mes, usuario.getId());
 
         List<Transaccion> existentes = transaccionRepo.findByPeriodoId(periodo.getId());
         List<TransaccionDTO> nuevas = new ArrayList<>();
@@ -394,15 +477,7 @@ public class PeriodoServiceImpl implements PeriodoService {
 
     @Override
     public ImportResultDTO confirmarImportacion(int anio, int mes, ImportConfirmacionRequestDTO request, Long usuarioId) {
-        Usuario usuario = usuarioRepo.findById(usuarioId)
-                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
-
-        PeriodoMensual periodo = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
-                .orElseGet(() -> {
-                    PeriodoMensual nuevo = new PeriodoMensual(anio, mes);
-                    nuevo.setUsuario(usuario);
-                    return periodoRepo.save(nuevo);
-                });
+        PeriodoMensual periodo = obtenerOCrearPeriodo(anio, mes, usuarioId);
 
         if (periodo.isCerrado()) {
             throw new IllegalStateException("El periodo está cerrado y no acepta nuevas transacciones.");

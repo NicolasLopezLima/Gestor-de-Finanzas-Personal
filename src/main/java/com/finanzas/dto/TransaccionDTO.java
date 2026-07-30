@@ -29,6 +29,10 @@ public class TransaccionDTO {
 
     private Long periodoId;
 
+    private Long transaccionFijaId; // solo lectura, lo completa el servidor
+
+    private boolean repetirTodosLosMeses; // solo se lee al crear (agregarTransaccion)
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getDescripcion() { return descripcion; }
@@ -43,4 +47,8 @@ public class TransaccionDTO {
     public void setFecha(LocalDate fecha) { this.fecha = fecha; }
     public Long getPeriodoId() { return periodoId; }
     public void setPeriodoId(Long periodoId) { this.periodoId = periodoId; }
+    public Long getTransaccionFijaId() { return transaccionFijaId; }
+    public void setTransaccionFijaId(Long transaccionFijaId) { this.transaccionFijaId = transaccionFijaId; }
+    public boolean isRepetirTodosLosMeses() { return repetirTodosLosMeses; }
+    public void setRepetirTodosLosMeses(boolean repetirTodosLosMeses) { this.repetirTodosLosMeses = repetirTodosLosMeses; }
 }
