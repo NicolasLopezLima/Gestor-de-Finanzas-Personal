@@ -48,18 +48,21 @@ document.addEventListener('click', e => {
     }
 });
 
-// Cargar nombre del usuario logueado
-fetch('/api/auth/me')
+// Cargar nombre del usuario logueado. Se expone como promesa compartida
+// (currentUserPromise) para que otras vistas —como el saludo del dashboard—
+// puedan usar el mismo dato sin repetir el fetch, incluso si ya se resolvió.
+const currentUserPromise = fetch('/api/auth/me')
     .then(r => {
         if (r.status === 401 || r.status === 403) { window.location.href = '/login'; return null; }
         return r.json();
     })
-    .then(u => {
-        if (!u) return;
-        const el = document.getElementById('sidebar-username');
-        if (el) el.textContent = u.nombre?.split(' ')[0] ?? u.email;
-    })
-    .catch(() => {});
+    .catch(() => null);
+
+currentUserPromise.then(u => {
+    if (!u) return;
+    const el = document.getElementById('sidebar-username');
+    if (el) el.textContent = u.nombre?.split(' ')[0] ?? u.email;
+});
 
 navigateTo('dashboard');
 
@@ -74,7 +77,7 @@ collapseBtn.addEventListener('click', () => {
 });
 
 // ── Theme toggle ─────────────────────────────────────────
-const themeBtn = document.querySelector('.theme-toggle');
+const themeBtn = document.querySelector('.theme-toggle-btn');
 const themeMobileBtn = document.getElementById('btn-theme-mobile');
 
 function syncThemeMobileIcon(isDark) {
@@ -82,11 +85,17 @@ function syncThemeMobileIcon(isDark) {
     icon.textContent = isDark ? 'light_mode' : 'dark_mode';
 }
 
+function syncThemeSidebarBtn(isDark) {
+    themeBtn.querySelector('.material-symbols-outlined').textContent = isDark ? 'light_mode' : 'dark_mode';
+    themeBtn.querySelector('.nav-label').textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+}
+
 function setTheme(isDark) {
     document.body.setAttribute('data-dark-mode', isDark ? 'true' : 'false');
     themeBtn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     syncThemeMobileIcon(isDark);
+    syncThemeSidebarBtn(isDark);
 }
 
 const saved = localStorage.getItem('theme');

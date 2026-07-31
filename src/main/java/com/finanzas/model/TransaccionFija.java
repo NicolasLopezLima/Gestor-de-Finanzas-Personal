@@ -2,11 +2,10 @@ package com.finanzas.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Entity
-@Table(name = "transacciones")
-public class Transaccion {
+@Table(name = "transacciones_fijas")
+public class TransaccionFija {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,17 +25,22 @@ public class Transaccion {
     private String categoria;
 
     @Column(nullable = false)
-    private LocalDate fecha;
+    private int dia;
+
+    @Column(nullable = false)
+    private int anioInicio;
+
+    @Column(nullable = false)
+    private int mesInicio;
+
+    @Column(nullable = false)
+    private boolean activa = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "periodo_id", nullable = false)
-    private PeriodoMensual periodo;
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "transaccion_fija_id", nullable = true)
-    private TransaccionFija transaccionFija;
-
-    public Transaccion() {}
+    public TransaccionFija() {}
 
     public Long getId() { return id; }
     public String getDescripcion() { return descripcion; }
@@ -47,10 +51,14 @@ public class Transaccion {
     public void setTipo(TipoTransaccion tipo) { this.tipo = tipo; }
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }
-    public LocalDate getFecha() { return fecha; }
-    public void setFecha(LocalDate fecha) { this.fecha = fecha; }
-    public PeriodoMensual getPeriodo() { return periodo; }
-    public void setPeriodo(PeriodoMensual periodo) { this.periodo = periodo; }
-    public TransaccionFija getTransaccionFija() { return transaccionFija; }
-    public void setTransaccionFija(TransaccionFija transaccionFija) { this.transaccionFija = transaccionFija; }
+    public int getDia() { return dia; }
+    public void setDia(int dia) { this.dia = dia; }
+    public int getAnioInicio() { return anioInicio; }
+    public void setAnioInicio(int anioInicio) { this.anioInicio = anioInicio; }
+    public int getMesInicio() { return mesInicio; }
+    public void setMesInicio(int mesInicio) { this.mesInicio = mesInicio; }
+    public boolean isActiva() { return activa; }
+    public void setActiva(boolean activa) { this.activa = activa; }
+    public Usuario getUsuario() { return usuario; }
+    public void setUsuario(Usuario usuario) { this.usuario = usuario; }
 }

@@ -17,11 +17,17 @@ async function initDashboard() {
 
     pageEl.innerHTML = `
         <div class="dashboard-welcome">
-            <div class="welcome-greeting">Buenos días, Nicolas</div>
+            <div class="welcome-greeting">Buenos días</div>
             <div class="welcome-period">${mesNombre} ${anio}</div>
         </div>
         <div class="cards-grid" id="dashboard-cards"><p style="color:var(--text-muted)">Cargando...</p></div>
     `;
+
+    currentUserPromise.then(u => {
+        if (!u) return;
+        const greeting = pageEl.querySelector('.welcome-greeting');
+        if (greeting) greeting.textContent = `Buenos días, ${u.nombre?.split(' ')[0] ?? u.email}`;
+    });
 
     const mes = now.getMonth() + 1;
     const [periodoRes, metasRes, resumenRes] = await Promise.allSettled([

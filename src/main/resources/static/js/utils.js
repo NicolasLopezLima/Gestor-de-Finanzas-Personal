@@ -50,8 +50,12 @@ let customSelectAbierto = null; // { panel, scrollCont, onScroll }
  *   principio y el valor inicial queda vacío; si es null/undefined, no hay opción
  *   en blanco y el valor inicial es el de la primera opción real (como un <select>
  *   nativo sin placeholder).
+ * @param {{texto:string, icono?:string, onClick:Function}|null} extra — si se pasa,
+ *   agrega una opción final visualmente distinta que en vez de setear `.value`
+ *   ejecuta `onClick()` (por ejemplo, "+ Agregar categoría"). Sin este parámetro,
+ *   el comportamiento es idéntico al de siempre.
  */
-function crearCustomSelect(id, opciones, placeholder) {
+function crearCustomSelect(id, opciones, placeholder, extra) {
     const el = document.getElementById(id);
     el.innerHTML = `
         <button type="button" class="custom-select-trigger">
@@ -68,7 +72,10 @@ function crearCustomSelect(id, opciones, placeholder) {
         ? [{ valor: '', texto: placeholder }, ...opcionesNormalizadas]
         : opcionesNormalizadas;
     panel.innerHTML = todasLasOpciones.map(o =>
-        `<div class="custom-select-option" data-valor="${o.valor}">${o.texto}</div>`).join('');
+        `<div class="custom-select-option" data-valor="${o.valor}">${o.texto}</div>`).join('') +
+        (extra ? `<div class="custom-select-option custom-select-option-extra" data-extra="1">
+            <span class="material-symbols-outlined">${extra.icono || 'add_circle'}</span> ${extra.texto}
+        </div>` : '');
 
     let valorActual = '';
     Object.defineProperty(el, 'value', {
@@ -86,6 +93,11 @@ function crearCustomSelect(id, opciones, placeholder) {
     panel.querySelectorAll('.custom-select-option').forEach(opt => {
         opt.addEventListener('click', e => {
             e.stopPropagation();
+            if (opt.dataset.extra) {
+                cerrarCustomSelects();
+                extra.onClick();
+                return;
+            }
             el.value = opt.dataset.valor;
             el.dispatchEvent(new Event('change', { bubbles: true }));
             cerrarCustomSelects();

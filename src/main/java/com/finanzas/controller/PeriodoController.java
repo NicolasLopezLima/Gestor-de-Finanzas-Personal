@@ -65,6 +65,13 @@ public class PeriodoController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/transacciones/{id}/recurrencia")
+    public ResponseEntity<Void> cancelarRecurrencia(@PathVariable Long id) {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        periodoService.cancelarRecurrencia(id, uid);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{anio}/{mes}/cerrar")
     public ResponseEntity<PeriodoResumenDTO> cerrar(@PathVariable int anio, @PathVariable int mes) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();

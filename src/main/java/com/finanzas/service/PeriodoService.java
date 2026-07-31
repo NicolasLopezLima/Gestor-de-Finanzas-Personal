@@ -13,6 +13,7 @@ public interface PeriodoService {
     TransaccionDTO agregarTransaccion(int anio, int mes, TransaccionDTO dto, Long usuarioId);
     TransaccionDTO editarTransaccion(Long transaccionId, TransaccionDTO dto, Long usuarioId);
     void eliminarTransaccion(Long transaccionId, Long usuarioId);
+    void cancelarRecurrencia(Long transaccionId, Long usuarioId);
     PeriodoResumenDTO cerrarPeriodo(int anio, int mes, Long usuarioId);
     byte[] generarPlantillaTransacciones(int anio, int mes, Long usuarioId);
     ImportacionResponseDTO importarTransacciones(int anio, int mes, InputStream excel, String nombreArchivo, Long usuarioId);

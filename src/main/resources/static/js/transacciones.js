@@ -1,26 +1,39 @@
 let periodoActual = null;
 let presupuestoMes = null;
 let filtroActivo = 'todos';
+let filtroCategoria = '';
 let importPreview = null;              // { anio, mes, nuevas, conflictos }
 let resolucionesConflicto = new Map(); // indice del conflicto -> 'MANTENER_EXISTENTE' | 'USAR_EXCEL' | 'MANTENER_AMBAS'
 let archivoPendienteImportacion = null; // File seleccionado, por si hace falta reenviarlo con un mapeo
 let mapeoContexto = null;               // { anio, mes }
 
-// Categorías predefinidas por tipo
-const CATEGORIAS = {
-    INGRESO: ['Sueldo', 'Freelance', 'Inversiones', 'Alquiler cobrado', 'Bono', 'Regalo', 'Otros ingresos'],
-    GASTO:   ['Alimentación', 'Transporte', 'Vivienda', 'Salud', 'Educación', 'Ropa', 'Entretenimiento',
-               'Servicios', 'Restaurantes', 'Tecnología', 'Viajes', 'Deporte', 'Seguros', 'Otros gastos'],
-};
+// Categorías del usuario, cargadas del servidor (se pueden crear/editar/borrar).
+// categoriasPorTipo: { INGRESO: [{id, nombre, icono}], GASTO: [...] }
+let categoriasPorTipo = { INGRESO: [], GASTO: [] };
+let iconoPorCategoria = {}; // "GASTO:Alimentación" -> icono, para el ícono de cada fila
 
-const CATEGORIA_ICONS = {
-    'Sueldo': '💰', 'Freelance': '💻', 'Inversiones': '📈', 'Alquiler cobrado': '🏠',
-    'Bono': '🎁', 'Regalo': '🎁', 'Otros ingresos': '➕',
-    'Alimentación': '🛒', 'Transporte': '🚗', 'Vivienda': '🏠', 'Salud': '🩺',
-    'Educación': '🎓', 'Ropa': '👕', 'Entretenimiento': '🎬', 'Servicios': '💡',
-    'Restaurantes': '🍽', 'Tecnología': '🖥', 'Viajes': '✈️', 'Deporte': '⚽',
-    'Seguros': '🛡', 'Otros gastos': '➖',
-};
+// Íconos disponibles para elegir al crear/editar una categoría
+const CATEGORIA_ICONOS_DISPONIBLES = [
+    'payments', 'laptop_mac', 'trending_up', 'home', 'redeem', 'add_circle', 'shopping_cart',
+    'directions_car', 'medical_services', 'school', 'checkroom', 'movie', 'lightbulb', 'restaurant',
+    'computer', 'flight', 'sports_soccer', 'shield', 'remove_circle', 'pets', 'child_care',
+    'fitness_center', 'local_gas_station', 'credit_card', 'savings', 'category', 'celebration',
+    'favorite', 'local_cafe', 'spa',
+];
+
+async function cargarCategorias() {
+    const lista = await api.listarCategorias();
+    categoriasPorTipo = { INGRESO: [], GASTO: [] };
+    iconoPorCategoria = {};
+    lista.forEach(c => {
+        categoriasPorTipo[c.tipo].push(c);
+        iconoPorCategoria[`${c.tipo}:${c.nombre}`] = c.icono;
+    });
+}
+
+function iconoDeCategoria(tipo, nombre) {
+    return iconoPorCategoria[`${tipo}:${nombre}`];
+}
 
 async function initTransacciones() {
     fillAnioCustomSelect('periodo-anio');
@@ -54,10 +67,10 @@ async function initTransacciones() {
     });
     document.getElementById('form-mapeo-import').addEventListener('submit', onSubmitMapeoWizard);
 
-    // Toggle tipo
-    document.querySelectorAll('.tipo-btn').forEach(btn => {
+    // Toggle tipo (solo los botones del modal de transacción — el de categorías se maneja aparte)
+    document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById('t-tipo').value = btn.dataset.value;
             actualizarCategorias(btn.dataset.value);
@@ -67,26 +80,181 @@ async function initTransacciones() {
     // Día actual por defecto
     document.getElementById('t-dia').value = new Date().getDate();
 
-    // Tabs filtro
+    // Tabs filtro (tipo) + desplegable de filtro por categoría
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             filtroActivo = tab.dataset.filter;
+            actualizarFiltroCategoria();
             renderTabla();
         });
     });
+    document.getElementById('filtro-categoria').addEventListener('change', () => {
+        filtroCategoria = document.getElementById('filtro-categoria').value;
+        renderTabla();
+    });
 
+    document.getElementById('btn-cerrar-categorias').addEventListener('click', cerrarModalCategorias);
+    document.getElementById('modal-categorias').addEventListener('click', e => {
+        if (e.target === document.getElementById('modal-categorias')) cerrarModalCategorias();
+    });
+    document.getElementById('categorias-modo-ingreso').addEventListener('click', () => cambiarTipoModalCategorias('INGRESO'));
+    document.getElementById('categorias-modo-gasto').addEventListener('click', () => cambiarTipoModalCategorias('GASTO'));
+    document.getElementById('form-categoria').addEventListener('submit', onGuardarCategoria);
+
+    await cargarCategorias();
     actualizarCategorias('INGRESO');
+    actualizarFiltroCategoria();
     actualizarMesLabel();
     await cargarPeriodo();
 }
 
 function actualizarCategorias(tipo) {
     const prev = document.getElementById('t-categoria').value;
-    const categorias = CATEGORIAS[tipo] || [];
-    crearCustomSelect('t-categoria', categorias, '— Seleccionar —');
+    const categorias = (categoriasPorTipo[tipo] || []).map(c => c.nombre);
+    crearCustomSelect('t-categoria', categorias, '— Seleccionar —', {
+        texto: 'Agregar categoría',
+        icono: 'add_circle',
+        onClick: () => abrirModalCategorias(document.getElementById('t-tipo').value),
+    });
     if (categorias.includes(prev)) document.getElementById('t-categoria').value = prev;
+}
+
+// Opciones del filtro por categoría de la lista de transacciones: se limitan al
+// tipo elegido en las tabs (Ingresos/Gastos), o a la unión de ambas con "Todos".
+function actualizarFiltroCategoria() {
+    const prev = document.getElementById('filtro-categoria').value;
+    const categorias = filtroActivo === 'todos'
+        ? [...new Set([...categoriasPorTipo.INGRESO, ...categoriasPorTipo.GASTO].map(c => c.nombre))]
+        : (categoriasPorTipo[filtroActivo] || []).map(c => c.nombre);
+    crearCustomSelect('filtro-categoria', categorias, 'Todas las categorías');
+    filtroCategoria = categorias.includes(prev) ? prev : '';
+    document.getElementById('filtro-categoria').value = filtroCategoria;
+}
+
+// ── Gestión de categorías (crear/editar/borrar, con ícono propio) ──────────
+
+let categoriaModalTipo = 'INGRESO';
+
+function abrirModalCategorias(tipoInicial) {
+    cambiarTipoModalCategorias(tipoInicial || 'INGRESO');
+    document.getElementById('modal-categorias').classList.remove('hidden');
+}
+
+function cerrarModalCategorias() {
+    document.getElementById('modal-categorias').classList.add('hidden');
+    // Si el modal de Nueva Transacción sigue abierto detrás, refrescamos su desplegable
+    // de categoría por si se creó/editó/borró algo mientras tanto.
+    if (!document.getElementById('modal-transaccion').classList.contains('hidden')) {
+        actualizarCategorias(document.getElementById('t-tipo').value);
+    }
+    // El filtro de categoría de la lista puede haber quedado con un nombre viejo
+    // (renombrado) o inexistente (borrado) — se recalcula y se vuelve a renderizar.
+    actualizarFiltroCategoria();
+    renderTabla();
+}
+
+function cambiarTipoModalCategorias(tipo) {
+    categoriaModalTipo = tipo;
+    document.getElementById('categorias-modo-ingreso').classList.toggle('active', tipo === 'INGRESO');
+    document.getElementById('categorias-modo-gasto').classList.toggle('active', tipo === 'GASTO');
+    resetFormCategoria();
+    renderListaCategorias(tipo);
+}
+
+function resetFormCategoria() {
+    document.getElementById('form-categoria').reset();
+    document.getElementById('categoria-id').value = '';
+    document.getElementById('categoria-icono').value = 'category';
+    renderCategoriaIconPicker('category');
+    document.getElementById('btn-guardar-categoria').textContent = 'Agregar categoría';
+}
+
+function renderCategoriaIconPicker(seleccionado) {
+    const cont = document.getElementById('categoria-icon-picker');
+    cont.innerHTML = CATEGORIA_ICONOS_DISPONIBLES.map(ic => `
+        <button type="button" class="meta-icon-btn ${ic === seleccionado ? 'active' : ''}" data-icon="${ic}" onclick="seleccionarIconoCategoria('${ic}')">
+            <span class="material-symbols-outlined">${ic}</span>
+        </button>`).join('');
+}
+
+function seleccionarIconoCategoria(icono) {
+    document.getElementById('categoria-icono').value = icono;
+    document.querySelectorAll('#categoria-icon-picker .meta-icon-btn').forEach(b => b.classList.toggle('active', b.dataset.icon === icono));
+}
+
+function renderListaCategorias(tipo) {
+    const lista = categoriasPorTipo[tipo] || [];
+    const cont = document.getElementById('categorias-lista');
+    if (lista.length === 0) {
+        cont.innerHTML = `<p class="mapeo-hint">Todavía no hay categorías de ${tipo === 'INGRESO' ? 'ingreso' : 'gasto'}.</p>`;
+        return;
+    }
+    cont.innerHTML = lista.map(c => `
+        <div class="categoria-row">
+            <span class="material-symbols-outlined categoria-row-icon">${c.icono}</span>
+            <span class="categoria-row-nombre">${c.nombre}</span>
+            <div class="categoria-row-acciones">
+                <button type="button" class="btn-icon" onclick="prepararEdicionCategoria(${c.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>
+                <button type="button" class="btn-icon" onclick="onEliminarCategoria(${c.id})"><span class="material-symbols-outlined" style="font-size:18px">delete</span></button>
+            </div>
+        </div>`).join('');
+}
+
+function prepararEdicionCategoria(id) {
+    const c = (categoriasPorTipo[categoriaModalTipo] || []).find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('categoria-id').value = c.id;
+    document.getElementById('categoria-nombre').value = c.nombre;
+    document.getElementById('categoria-icono').value = c.icono;
+    renderCategoriaIconPicker(c.icono);
+    document.getElementById('btn-guardar-categoria').textContent = 'Guardar cambios';
+    document.getElementById('categoria-nombre').focus();
+}
+
+async function onGuardarCategoria(e) {
+    e.preventDefault();
+    const nombre = document.getElementById('categoria-nombre').value.trim();
+    if (!nombre) { showToast('Ponele un nombre a la categoría', 'error'); return; }
+
+    const dto = { nombre, tipo: categoriaModalTipo, icono: document.getElementById('categoria-icono').value };
+    const id = document.getElementById('categoria-id').value;
+    try {
+        if (id) {
+            await api.editarCategoria(+id, dto);
+        } else {
+            await api.crearCategoria(dto);
+        }
+        await cargarCategorias();
+        resetFormCategoria();
+        renderListaCategorias(categoriaModalTipo);
+        showToast('Categoría guardada');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function onEliminarCategoria(id) {
+    let mensaje = '¿Eliminar esta categoría?';
+    try {
+        const uso = await api.contarUsoCategoria(id);
+        if (uso > 0) {
+            mensaje = `Esta categoría tiene ${uso} transacción(es) cargada(s). Van a mantener este nombre, pero la categoría ya no va a poder elegirse para transacciones nuevas. ¿Eliminarla igual?`;
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+        return;
+    }
+    if (!confirm(mensaje)) return;
+    try {
+        await api.eliminarCategoria(id);
+        await cargarCategorias();
+        renderListaCategorias(categoriaModalTipo);
+        showToast('Categoría eliminada');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
 function abrirModalTransaccion(id) {
@@ -97,6 +265,8 @@ function abrirModalTransaccion(id) {
     document.getElementById('modal-transaccion-title').textContent = 'Nueva Transacción';
     document.getElementById('tx-submit-btn-label').textContent = 'Registrar Transacción';
     document.getElementById('t-dia').value = new Date().getDate();
+    document.getElementById('t-repetir-grupo').classList.remove('hidden');
+    document.getElementById('t-fija-info').classList.add('hidden');
 
     let tipo = 'INGRESO';
     const t = id ? (periodoActual?.transacciones || []).find(x => x.id === id) : null;
@@ -108,15 +278,34 @@ function abrirModalTransaccion(id) {
         document.getElementById('t-descripcion').value = t.descripcion;
         document.getElementById('t-dia').value = +t.fecha.slice(8, 10);
         tipo = t.tipo;
+
+        // No se puede tildar "repetir" al editar (solo se decide al crear)
+        document.getElementById('t-repetir-grupo').classList.add('hidden');
+        if (t.transaccionFijaId) {
+            document.getElementById('t-fija-info').classList.remove('hidden');
+            document.getElementById('btn-cancelar-recurrencia').onclick = () => cancelarRecurrencia(t.id);
+        }
     }
 
-    document.querySelectorAll('.tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
+    document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
     document.getElementById('t-tipo').value = tipo;
     actualizarCategorias(tipo);
     if (t) document.getElementById('t-categoria').value = t.categoria;
 
     document.getElementById('modal-transaccion').classList.remove('hidden');
     document.getElementById('t-descripcion').focus();
+}
+
+async function cancelarRecurrencia(transaccionId) {
+    if (!confirm('¿Dejar de repetir esta transacción? Los meses posteriores a este que ya se hayan generado se van a eliminar; los anteriores (incluido este) quedan intactos.')) return;
+    try {
+        await api.cancelarRecurrencia(transaccionId);
+        cerrarModalTransaccion();
+        await cargarPeriodo();
+        showToast('Se canceló la recurrencia');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
 function editarTransaccion(id) {
@@ -223,14 +412,16 @@ function renderTabla() {
     if (!periodoActual) { cont.innerHTML = ''; return; }
     let lista = periodoActual.transacciones || [];
     if (filtroActivo !== 'todos') lista = lista.filter(t => t.tipo === filtroActivo);
+    if (filtroCategoria) lista = lista.filter(t => t.categoria === filtroCategoria);
 
+    const hayFiltro = filtroActivo !== 'todos' || filtroCategoria;
     if (lista.length === 0) {
         cont.innerHTML = emptyState({
             icon: '🧾',
-            title: filtroActivo === 'todos' ? 'Todavía no hay movimientos' : 'Nada para mostrar con este filtro',
-            text: filtroActivo === 'todos'
-                ? 'Cargá tu primer ingreso o gasto con el botón "+".'
-                : 'Probá con otro filtro o agregá una transacción nueva.',
+            title: hayFiltro ? 'Nada para mostrar con este filtro' : 'Todavía no hay movimientos',
+            text: hayFiltro
+                ? 'Probá con otro filtro o agregá una transacción nueva.'
+                : 'Cargá tu primer ingreso o gasto con el botón "+".',
         });
         return;
     }
@@ -241,9 +432,11 @@ function renderTabla() {
             <div class="tx-group-label">${labelFecha(fecha)}</div>
             ${items.map(t => `
                 <div class="tx-row">
-                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">${CATEGORIA_ICONS[t.categoria] || (t.tipo === 'INGRESO' ? '↑' : '↓')}</span>
+                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">
+                        <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || (t.tipo === 'INGRESO' ? 'arrow_upward' : 'arrow_downward')}</span>
+                    </span>
                     <div class="tx-row-info">
-                        <div class="tx-row-desc">${t.descripcion}</div>
+                        <div class="tx-row-desc">${t.descripcion}${t.transaccionFijaId ? ' <span class="material-symbols-outlined tx-fija-badge" title="Se repite todos los meses">sync</span>' : ''}</div>
                         <div class="tx-row-cat">${t.categoria}</div>
                     </div>
                     <div class="tx-row-right">
@@ -282,6 +475,7 @@ async function onAgregarTransaccion(e) {
         fecha,
     };
     const id = document.getElementById('t-id').value;
+    if (!id) dto.repetirTodosLosMeses = document.getElementById('t-repetir').checked;
     try {
         if (id) {
             await api.editarTransaccion(+id, dto);
@@ -472,7 +666,9 @@ function renderPreviewConflictos() {
             <div class="tx-group-label">${labelFecha(fecha)}</div>
             ${items.map(t => `
                 <div class="tx-row">
-                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">${CATEGORIA_ICONS[t.categoria] || (t.tipo === 'INGRESO' ? '↑' : '↓')}</span>
+                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">
+                        <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || (t.tipo === 'INGRESO' ? 'arrow_upward' : 'arrow_downward')}</span>
+                    </span>
                     <div class="tx-row-info"><div class="tx-row-desc">${t.descripcion}</div><div class="tx-row-cat">${t.categoria}</div></div>
                     <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
                 </div>`).join('')}
