@@ -1028,6 +1028,20 @@ body[data-dark-mode="true"] .np-form .form-group select {
     font-family: var(--font-mono);
 }
 
+/* Filtro por categoría: vive en la toolbar de import/export, pegado a la derecha */
+.tx-filtro-categoria {
+    padding: 9px 16px;
+    flex: 0 0 180px;
+    margin-left: auto;
+}
+
+.tx-filtro-categoria .custom-select-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
 /* Filter tabs (neumorphic segmented control) */
 .np-tabs {
     display: flex;

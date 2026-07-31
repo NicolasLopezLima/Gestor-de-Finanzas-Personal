@@ -1,6 +1,7 @@
 let periodoActual = null;
 let presupuestoMes = null;
 let filtroActivo = 'todos';
+let filtroCategoria = '';
 let importPreview = null;              // { anio, mes, nuevas, conflictos }
 let resolucionesConflicto = new Map(); // indice del conflicto -> 'MANTENER_EXISTENTE' | 'USAR_EXCEL' | 'MANTENER_AMBAS'
 let archivoPendienteImportacion = null; // File seleccionado, por si hace falta reenviarlo con un mapeo
@@ -79,14 +80,19 @@ async function initTransacciones() {
     // Día actual por defecto
     document.getElementById('t-dia').value = new Date().getDate();
 
-    // Tabs filtro
+    // Tabs filtro (tipo) + desplegable de filtro por categoría
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             filtroActivo = tab.dataset.filter;
+            actualizarFiltroCategoria();
             renderTabla();
         });
+    });
+    document.getElementById('filtro-categoria').addEventListener('change', () => {
+        filtroCategoria = document.getElementById('filtro-categoria').value;
+        renderTabla();
     });
 
     document.getElementById('btn-cerrar-categorias').addEventListener('click', cerrarModalCategorias);
@@ -99,6 +105,7 @@ async function initTransacciones() {
 
     await cargarCategorias();
     actualizarCategorias('INGRESO');
+    actualizarFiltroCategoria();
     actualizarMesLabel();
     await cargarPeriodo();
 }
@@ -112,6 +119,18 @@ function actualizarCategorias(tipo) {
         onClick: () => abrirModalCategorias(document.getElementById('t-tipo').value),
     });
     if (categorias.includes(prev)) document.getElementById('t-categoria').value = prev;
+}
+
+// Opciones del filtro por categoría de la lista de transacciones: se limitan al
+// tipo elegido en las tabs (Ingresos/Gastos), o a la unión de ambas con "Todos".
+function actualizarFiltroCategoria() {
+    const prev = document.getElementById('filtro-categoria').value;
+    const categorias = filtroActivo === 'todos'
+        ? [...new Set([...categoriasPorTipo.INGRESO, ...categoriasPorTipo.GASTO].map(c => c.nombre))]
+        : (categoriasPorTipo[filtroActivo] || []).map(c => c.nombre);
+    crearCustomSelect('filtro-categoria', categorias, 'Todas las categorías');
+    filtroCategoria = categorias.includes(prev) ? prev : '';
+    document.getElementById('filtro-categoria').value = filtroCategoria;
 }
 
 // ── Gestión de categorías (crear/editar/borrar, con ícono propio) ──────────
@@ -130,6 +149,10 @@ function cerrarModalCategorias() {
     if (!document.getElementById('modal-transaccion').classList.contains('hidden')) {
         actualizarCategorias(document.getElementById('t-tipo').value);
     }
+    // El filtro de categoría de la lista puede haber quedado con un nombre viejo
+    // (renombrado) o inexistente (borrado) — se recalcula y se vuelve a renderizar.
+    actualizarFiltroCategoria();
+    renderTabla();
 }
 
 function cambiarTipoModalCategorias(tipo) {
@@ -389,14 +412,16 @@ function renderTabla() {
     if (!periodoActual) { cont.innerHTML = ''; return; }
     let lista = periodoActual.transacciones || [];
     if (filtroActivo !== 'todos') lista = lista.filter(t => t.tipo === filtroActivo);
+    if (filtroCategoria) lista = lista.filter(t => t.categoria === filtroCategoria);
 
+    const hayFiltro = filtroActivo !== 'todos' || filtroCategoria;
     if (lista.length === 0) {
         cont.innerHTML = emptyState({
             icon: '🧾',
-            title: filtroActivo === 'todos' ? 'Todavía no hay movimientos' : 'Nada para mostrar con este filtro',
-            text: filtroActivo === 'todos'
-                ? 'Cargá tu primer ingreso o gasto con el botón "+".'
-                : 'Probá con otro filtro o agregá una transacción nueva.',
+            title: hayFiltro ? 'Nada para mostrar con este filtro' : 'Todavía no hay movimientos',
+            text: hayFiltro
+                ? 'Probá con otro filtro o agregá una transacción nueva.'
+                : 'Cargá tu primer ingreso o gasto con el botón "+".',
         });
         return;
     }
