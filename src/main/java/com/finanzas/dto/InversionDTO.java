@@ -1,5 +1,6 @@
 package com.finanzas.dto;
 
+import com.finanzas.model.MercadoInversion;
 import com.finanzas.model.TipoInversion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -29,6 +30,12 @@ public class InversionDTO {
 
     private String notas;
 
+    private String ticker;
+
+    private MercadoInversion mercado;
+
+    private BigDecimal cantidad;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getNombre() { return nombre; }
@@ -43,4 +50,10 @@ public class InversionDTO {
     public void setFechaRegistro(LocalDate fechaRegistro) { this.fechaRegistro = fechaRegistro; }
     public String getNotas() { return notas; }
     public void setNotas(String notas) { this.notas = notas; }
+    public String getTicker() { return ticker; }
+    public void setTicker(String ticker) { this.ticker = ticker; }
+    public MercadoInversion getMercado() { return mercado; }
+    public void setMercado(MercadoInversion mercado) { this.mercado = mercado; }
+    public BigDecimal getCantidad() { return cantidad; }
+    public void setCantidad(BigDecimal cantidad) { this.cantidad = cantidad; }
 }

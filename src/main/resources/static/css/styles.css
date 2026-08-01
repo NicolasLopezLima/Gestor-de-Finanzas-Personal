@@ -909,15 +909,83 @@ body[data-dark-mode="true"] .np-form .form-group select {
     margin-top: 2px;
 }
 
-.inv-bento {
+/* Gráfico de evolución de la cartera (índice ponderado por costo, un mercado a la vez) */
+.inv-evolucion-card { padding: 24px; margin-bottom: 16px; }
+.inv-evolucion-mercado-field { max-width: 190px; padding: 8px 14px; margin-bottom: 16px; }
+.inv-evolucion-card .np-tabs { margin-bottom: 16px; }
+
+.inv-evolucion-variacion {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+}
+
+.inv-evolucion-chart { display: flex; justify-content: center; margin-bottom: 4px; }
+.inv-evolucion-chart svg { width: 100%; height: auto; max-width: 100%; }
+
+/* Resumen agregado + ranking de cotizaciones en vivo, arriba de todo en Inversiones */
+#inv-cotizaciones-resumen:empty,
+#inv-cotiz-mercados:empty,
+#inv-cotiz-ranking:empty { margin: 0; }
+
+.inv-cotiz-resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.inv-cotiz-card { padding: 18px 20px; margin-bottom: 16px; }
+.inv-cotiz-card-valor {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    margin: 4px 0 6px;
+}
+
+.inv-ranking-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.inv-ranking-col-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 6px;
+}
+
+.inv-ranking-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    padding: 4px 0;
+}
+
+/* Fila superior de Inversiones: gráfico de evolución (más chico, izquierda) + donut y
+   rebalanceo apilados (derecha) */
+.inv-top-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
     gap: 24px;
     margin-bottom: 28px;
+    align-items: start;
+}
+
+.inv-top-grid-right {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
 @media (max-width: 900px) {
-    .inv-bento { grid-template-columns: 1fr; }
+    .inv-top-grid { grid-template-columns: 1fr; }
 }
 
 .inv-donut-card {
@@ -1027,6 +1095,24 @@ body[data-dark-mode="true"] .np-form .form-group select {
     margin-top: 6px;
     font-family: var(--font-mono);
 }
+
+/* Cotización en vivo (Finnhub / data912) dentro de una card de posición */
+.inv-pos-cotizacion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+.inv-pos-cotizacion svg { flex-shrink: 0; }
+
+.inv-pos-cotizacion-na { font-style: italic; }
 
 /* Filtro por categoría: vive en la toolbar de import/export, pegado a la derecha */
 .tx-filtro-categoria {
@@ -1766,6 +1852,13 @@ body[data-dark-mode="true"] .np-form .form-group select {
     font-weight: 600;
 }
 .custom-select-option-extra .material-symbols-outlined { font-size: 18px; }
+
+.inv-ticker-sugerencia-meta {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
 
 /* Gestión de categorías */
 .categoria-row {

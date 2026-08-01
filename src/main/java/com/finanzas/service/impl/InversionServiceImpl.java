@@ -1,7 +1,11 @@
 package com.finanzas.service.impl;
 
+import com.finanzas.cotizaciones.CotizacionService;
+import com.finanzas.dto.CotizacionDTO;
+import com.finanzas.dto.EvolucionDTO;
 import com.finanzas.dto.InversionDTO;
 import com.finanzas.model.Inversion;
+import com.finanzas.model.MercadoInversion;
 import com.finanzas.model.TipoInversion;
 import com.finanzas.model.Usuario;
 import com.finanzas.repository.InversionRepository;
@@ -22,10 +26,12 @@ public class InversionServiceImpl implements InversionService {
 
     private final InversionRepository inversionRepo;
     private final UsuarioRepository usuarioRepo;
+    private final CotizacionService cotizacionService;
 
-    public InversionServiceImpl(InversionRepository inversionRepo, UsuarioRepository usuarioRepo) {
+    public InversionServiceImpl(InversionRepository inversionRepo, UsuarioRepository usuarioRepo, CotizacionService cotizacionService) {
         this.inversionRepo = inversionRepo;
         this.usuarioRepo = usuarioRepo;
+        this.cotizacionService = cotizacionService;
     }
 
     @Override
@@ -39,6 +45,9 @@ public class InversionServiceImpl implements InversionService {
         inv.setPorcentajeCartera(dto.getPorcentajeCartera());
         inv.setFechaRegistro(dto.getFechaRegistro() != null ? dto.getFechaRegistro() : LocalDate.now());
         inv.setNotas(dto.getNotas());
+        inv.setTicker(dto.getTicker());
+        inv.setMercado(dto.getMercado());
+        inv.setCantidad(dto.getCantidad());
         inv.setUsuario(usuario);
         return toDTO(inversionRepo.save(inv));
     }
@@ -49,9 +58,13 @@ public class InversionServiceImpl implements InversionService {
                 .orElseThrow(() -> new IllegalArgumentException("Inversión no encontrada: " + id));
         inv.setNombre(dto.getNombre());
         inv.setTipo(dto.getTipo());
+        if (dto.getFechaRegistro() != null) inv.setFechaRegistro(dto.getFechaRegistro());
         inv.setMontoInvertido(dto.getMontoInvertido());
         inv.setPorcentajeCartera(dto.getPorcentajeCartera());
         inv.setNotas(dto.getNotas());
+        inv.setTicker(dto.getTicker());
+        inv.setMercado(dto.getMercado());
+        inv.setCantidad(dto.getCantidad());
         return toDTO(inversionRepo.save(inv));
     }
 
@@ -97,6 +110,16 @@ public class InversionServiceImpl implements InversionService {
         return resumen;
     }
 
+    @Override
+    public List<CotizacionDTO> obtenerCotizaciones(Long usuarioId) {
+        return cotizacionService.obtenerCotizaciones(inversionRepo.findByUsuarioId(usuarioId));
+    }
+
+    @Override
+    public EvolucionDTO obtenerEvolucion(Long usuarioId, MercadoInversion mercado, String periodo) {
+        return cotizacionService.obtenerEvolucion(inversionRepo.findByUsuarioId(usuarioId), mercado, periodo);
+    }
+
     private InversionDTO toDTO(Inversion inv) {
         InversionDTO dto = new InversionDTO();
         dto.setId(inv.getId());
@@ -106,6 +129,9 @@ public class InversionServiceImpl implements InversionService {
         dto.setPorcentajeCartera(inv.getPorcentajeCartera());
         dto.setFechaRegistro(inv.getFechaRegistro());
         dto.setNotas(inv.getNotas());
+        dto.setTicker(inv.getTicker());
+        dto.setMercado(inv.getMercado());
+        dto.setCantidad(inv.getCantidad());
         return dto;
     }
 }
