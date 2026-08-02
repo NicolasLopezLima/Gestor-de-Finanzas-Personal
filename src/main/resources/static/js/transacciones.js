@@ -7,6 +7,14 @@ let resolucionesConflicto = new Map(); // indice del conflicto -> 'MANTENER_EXIS
 let archivoPendienteImportacion = null; // File seleccionado, por si hace falta reenviarlo con un mapeo
 let mapeoContexto = null;               // { anio, mes }
 
+// Importación de historial completo (varias hojas, cada una a su propio período)
+let deteccionHistoricoActual = null;   // DeteccionHistoricoDTO tal cual la devuelve el backend
+let modoMapeoHistorico = false;        // true mientras el asistente de mapeo está resolviendo para este flujo
+let mapeoHistoricoResuelto = null;     // SeleccionMapeoDTO ya armado, listo para mandar en la confirmación
+let importPreviewHistorico = null;     // { nuevas, conflictos } de la importación multi-período
+let resolucionesConflictoHistorico = new Map();
+let conflictosEnModoHistorico = false; // qué handler usa el botón "Confirmar importación" compartido
+
 // Categorías del usuario, cargadas del servidor (se pueden crear/editar/borrar).
 // categoriasPorTipo: { INGRESO: [{id, nombre, icono}], GASTO: [...] }
 let categoriasPorTipo = { INGRESO: [], GASTO: [] };
@@ -56,7 +64,9 @@ async function initTransacciones() {
     document.getElementById('btn-cerrar-import-errores').addEventListener('click', () => document.getElementById('modal-import-errores').classList.add('hidden'));
 
     document.getElementById('btn-cerrar-conflictos-import').addEventListener('click', cerrarModalConflictos);
-    document.getElementById('btn-confirmar-import').addEventListener('click', onConfirmarImportacion);
+    document.getElementById('btn-confirmar-import').addEventListener('click', () => {
+        if (conflictosEnModoHistorico) onConfirmarImportacionHistorico(); else onConfirmarImportacion();
+    });
     document.getElementById('modal-conflictos-import').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-conflictos-import')) cerrarModalConflictos();
     });
@@ -66,6 +76,12 @@ async function initTransacciones() {
         if (e.target === document.getElementById('modal-mapeo-import')) cerrarModalMapeo();
     });
     document.getElementById('form-mapeo-import').addEventListener('submit', onSubmitMapeoWizard);
+
+    document.getElementById('btn-cerrar-revision-hojas').addEventListener('click', cerrarModalRevisionHojas);
+    document.getElementById('modal-revision-hojas').addEventListener('click', e => {
+        if (e.target === document.getElementById('modal-revision-hojas')) cerrarModalRevisionHojas();
+    });
+    document.getElementById('btn-confirmar-revision-hojas').addEventListener('click', onConfirmarRevisionHojas);
 
     // Toggle tipo (solo los botones del modal de transacción — el de categorías se maneja aparte)
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(btn => {
@@ -539,21 +555,50 @@ async function onImportarExcel(e) {
         showToast('El período está cerrado y no acepta nuevas transacciones.', 'error');
         return;
     }
-    const anio = +document.getElementById('periodo-anio').value;
-    const mes = +document.getElementById('periodo-mes').value;
     archivoPendienteImportacion = file;
     const formData = new FormData();
     formData.append('archivo', file);
+
+    // Primero se detectan las hojas del archivo — si tiene más de una con pinta de
+    // transacciones, se ofrece el flujo de revisión multi-período en vez de importar
+    // directo al período que se está viendo (mismo File, FormData se puede reusar/
+    // reconstruir sin problema ya que un File no se "consume" al mandarlo).
+    let deteccion;
     try {
-        const resultado = await api.importarTransacciones(anio, mes, formData);
-        manejarResultadoImportacion(anio, mes, resultado);
+        deteccion = await api.detectarHistorico(formData);
     } catch (err) {
         archivoPendienteImportacion = null;
-        if (err.filasConError && err.filasConError.length > 0) {
-            mostrarErroresImportacion(err.message, err.filasConError);
-        } else {
-            showToast(err.message, 'error');
+        showToast(err.message, 'error');
+        return;
+    }
+
+    // La decisión de mostrar la revisión es por CANTIDAD de hojas del archivo, no por cuántas
+    // "parecen" transacciones — ese heurístico solo decide el tilde por defecto de cada una;
+    // con una sola hoja no hay ambigüedad posible, se sigue el camino de siempre.
+    if (deteccion.hojas.length <= 1) {
+        const anio = +document.getElementById('periodo-anio').value;
+        const mes = +document.getElementById('periodo-mes').value;
+        try {
+            const resultado = await api.importarTransacciones(anio, mes, formData);
+            manejarResultadoImportacion(anio, mes, resultado);
+        } catch (err) {
+            archivoPendienteImportacion = null;
+            if (err.filasConError && err.filasConError.length > 0) {
+                mostrarErroresImportacion(err.message, err.filasConError);
+            } else {
+                showToast(err.message, 'error');
+            }
         }
+        return;
+    }
+
+    deteccionHistoricoActual = deteccion;
+    if (deteccion.requiereMapeo) {
+        modoMapeoHistorico = true;
+        abrirModalMapeo(null, null, deteccion.encabezadosReferencia);
+    } else {
+        mapeoHistoricoResuelto = null;
+        abrirModalRevisionHojas();
     }
 }
 
@@ -581,6 +626,7 @@ function mostrarErroresImportacion(mensaje, filas) {
 // ── Resolución de conflictos de importación (estilo merge de git) ──────────
 
 function abrirModalConflictos(anio, mes, preview) {
+    conflictosEnModoHistorico = false;
     importPreview = { anio, mes, nuevas: preview.nuevas, conflictos: preview.conflictos };
     resolucionesConflicto = new Map();
     renderConflictos();
@@ -589,6 +635,9 @@ function abrirModalConflictos(anio, mes, preview) {
 
 function cerrarModalConflictos() {
     document.getElementById('modal-conflictos-import').classList.add('hidden');
+    importPreviewHistorico = null;
+    resolucionesConflictoHistorico = new Map();
+    conflictosEnModoHistorico = false;
     importPreview = null;
     resolucionesConflicto = new Map();
 }
@@ -696,6 +745,80 @@ async function onConfirmarImportacion() {
     }
 }
 
+function abrirModalConflictosHistorico(preview) {
+    conflictosEnModoHistorico = true;
+    importPreviewHistorico = { nuevas: preview.nuevas, conflictos: preview.conflictos };
+    resolucionesConflictoHistorico = new Map();
+    renderConflictosHistorico();
+    document.getElementById('modal-conflictos-import').classList.remove('hidden');
+}
+
+// Mismo diseño de tarjeta que renderConflictos(), reusando renderFilaConflicto — pero sin la
+// vista previa en vivo (asumía un solo período; acá los conflictos pueden ser de varios meses
+// a la vez, no hay un "periodoActual" único contra el cual armarla).
+function renderConflictosHistorico() {
+    const cont = document.getElementById('conflictos-list');
+    cont.innerHTML = importPreviewHistorico.conflictos.map((c, i) => {
+        const accion = resolucionesConflictoHistorico.get(i);
+        return `
+        <div class="conflict-card">
+            <div class="conflict-card-header">
+                <span class="conflict-badge">Conflicto ${i + 1} de ${importPreviewHistorico.conflictos.length}</span>
+                <span class="conflict-key">${fmtDate(c.existente.fecha)} · ${c.existente.descripcion} · ${fmt(c.existente.monto)}</span>
+            </div>
+            <div class="conflict-diff">
+                <div class="conflict-side conflict-side-existing ${accion === 'MANTENER_EXISTENTE' ? 'is-selected' : ''}">
+                    <div class="conflict-marker">&lt;&lt;&lt;&lt;&lt;&lt;&lt; Existente</div>
+                    ${renderFilaConflicto(c.existente)}
+                </div>
+                <div class="conflict-side conflict-side-incoming ${accion === 'USAR_EXCEL' ? 'is-selected' : ''}">
+                    <div class="conflict-marker">&gt;&gt;&gt;&gt;&gt;&gt;&gt; Excel</div>
+                    ${renderFilaConflicto(c.entrante)}
+                </div>
+            </div>
+            <div class="conflict-actions">
+                <button type="button" class="np-button np-pill np-pill-sm conflict-btn ${accion === 'MANTENER_EXISTENTE' ? 'active' : ''}" data-accion="MANTENER_EXISTENTE" data-index="${i}">Mantener existente</button>
+                <button type="button" class="np-button np-pill np-pill-sm conflict-btn ${accion === 'USAR_EXCEL' ? 'active' : ''}" data-accion="USAR_EXCEL" data-index="${i}">Usar versión Excel</button>
+                <button type="button" class="np-button np-pill np-pill-sm conflict-btn ${accion === 'MANTENER_AMBAS' ? 'active' : ''}" data-accion="MANTENER_AMBAS" data-index="${i}">Mantener ambas</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    cont.querySelectorAll('.conflict-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            resolucionesConflictoHistorico.set(+btn.dataset.index, btn.dataset.accion);
+            renderConflictosHistorico();
+        });
+    });
+    document.getElementById('conflictos-preview-list').innerHTML =
+        '<p class="mapeo-hint">La vista previa en vivo no está disponible al importar varios períodos a la vez.</p>';
+
+    const total = importPreviewHistorico.conflictos.length;
+    const resueltos = resolucionesConflictoHistorico.size;
+    document.getElementById('conflictos-progreso').textContent = `${resueltos} / ${total} conflictos resueltos`;
+    document.getElementById('btn-confirmar-import').disabled = resueltos < total;
+}
+
+async function onConfirmarImportacionHistorico() {
+    if (!importPreviewHistorico) return;
+    const resoluciones = importPreviewHistorico.conflictos.map((c, i) => ({
+        existenteId: c.existenteId,
+        entrante: c.entrante,
+        accion: resolucionesConflictoHistorico.get(i),
+    }));
+    try {
+        const resultado = await api.confirmarConflictosHistorico({
+            nuevas: importPreviewHistorico.nuevas,
+            resoluciones,
+        });
+        cerrarModalConflictos();
+        await cargarPeriodo();
+        showToast(`Se importaron ${resultado.importadas} transacciones`);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
 // ── Asistente de mapeo de columnas (archivos que no siguen la plantilla) ────
 // crearCustomSelect/cerrarCustomSelects viven en utils.js (se reutilizan en
 // todos los desplegables de la app, no solo en este asistente).
@@ -719,6 +842,8 @@ function cerrarModalMapeo() {
     document.getElementById('modal-mapeo-import').classList.add('hidden');
     mapeoContexto = null;
     archivoPendienteImportacion = null;
+    modoMapeoHistorico = false;
+    deteccionHistoricoActual = null;
 }
 
 async function onSubmitMapeoWizard(e) {
@@ -731,6 +856,22 @@ async function onSubmitMapeoWizard(e) {
     const columnaMontoGasto = document.getElementById('mapeo-monto-gasto-tabla').value;
     if (!columnaDescripcionIngreso || !columnaMontoIngreso || !columnaDescripcionGasto || !columnaMontoGasto) {
         showToast('Elegí las columnas de Descripción y Monto para Ingresos y para Gastos', 'error');
+        return;
+    }
+    const columnaFecha = document.getElementById('mapeo-fecha').value;
+    const columnaCategoria = document.getElementById('mapeo-categoria').value;
+    const recordarMapeo = document.getElementById('mapeo-recordar').checked;
+
+    if (modoMapeoHistorico) {
+        mapeoHistoricoResuelto = {
+            modoImporte: 'TABLAS_INDEPENDIENTES',
+            columnaFecha, columnaCategoria, recordarMapeo,
+            columnaDescripcionIngreso, columnaMontoIngreso, columnaDescripcionGasto, columnaMontoGasto,
+        };
+        modoMapeoHistorico = false;
+        cerrarCustomSelects();
+        document.getElementById('modal-mapeo-import').classList.add('hidden');
+        abrirModalRevisionHojas();
         return;
     }
 
@@ -753,6 +894,87 @@ async function onSubmitMapeoWizard(e) {
     } catch (err) {
         if (err.filasConError && err.filasConError.length > 0) {
             cerrarModalMapeo();
+            mostrarErroresImportacion(err.message, err.filasConError);
+        } else {
+            showToast(err.message, 'error');
+        }
+    }
+}
+
+// ── Revisión de hojas al importar historial completo (varios períodos) ─────
+// Reusa fillMesCustomSelect (utils.js) para el desplegable de mes de cada fila.
+
+function abrirModalRevisionHojas() {
+    // Se muestran TODAS las hojas detectadas, no solo las que el heurístico reconoce — así una
+    // hoja con columnas que no adivinamos sigue siendo elegible, en vez de quedar invisible.
+    const hojas = deteccionHistoricoActual.hojas;
+    renderFilasRevisionHojas(hojas);
+    document.getElementById('revision-anio-comun-grupo').classList.toggle('hidden', !deteccionHistoricoActual.requiereAnioComun);
+    document.getElementById('revision-anio-comun').value = '';
+    document.getElementById('modal-revision-hojas').classList.remove('hidden');
+}
+
+function renderFilasRevisionHojas(hojas) {
+    const cont = document.getElementById('revision-hojas-list');
+    cont.innerHTML = hojas.map((h, i) => `
+        <div class="revision-hoja-row">
+            <label><input type="checkbox" class="revision-incluir" id="revision-incluir-${i}" ${h.incluir ? 'checked' : ''}> ${h.nombreHoja}</label>
+            <div class="revision-hoja-periodo">
+                <div class="np-flat tx-field revision-mes-field">
+                    <div id="revision-mes-${i}" class="custom-select"></div>
+                </div>
+                <div class="np-flat tx-field revision-anio-field">
+                    <input type="number" id="revision-anio-${i}" min="2000" max="2100" placeholder="Año" value="${h.anioInferido ?? ''}">
+                </div>
+            </div>
+        </div>`).join('');
+    hojas.forEach((h, i) => fillMesCustomSelect(`revision-mes-${i}`, h.mesInferido || 1));
+}
+
+function cerrarModalRevisionHojas() {
+    document.getElementById('modal-revision-hojas').classList.add('hidden');
+    deteccionHistoricoActual = null;
+    mapeoHistoricoResuelto = null;
+    archivoPendienteImportacion = null;
+}
+
+async function onConfirmarRevisionHojas() {
+    const hojas = deteccionHistoricoActual.hojas;
+    const anioComun = document.getElementById('revision-anio-comun').value;
+
+    const seleccionHojas = hojas.map((h, i) => {
+        const incluir = document.getElementById(`revision-incluir-${i}`).checked;
+        const mes = +document.getElementById(`revision-mes-${i}`).value;
+        const anioFila = document.getElementById(`revision-anio-${i}`).value;
+        const anio = anioFila ? +anioFila : (anioComun ? +anioComun : null);
+        return { nombreHoja: h.nombreHoja, anio, mes, incluir };
+    });
+
+    if (seleccionHojas.some(s => s.incluir && !s.anio)) {
+        showToast('Falta indicar el año para alguna hoja incluida', 'error');
+        return;
+    }
+    if (!seleccionHojas.some(s => s.incluir)) {
+        showToast('Elegí al menos una hoja para importar', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('archivo', archivoPendienteImportacion);
+    formData.append('seleccion', JSON.stringify({ hojas: seleccionHojas, mapeoOpcional: mapeoHistoricoResuelto }));
+
+    try {
+        const resultado = await api.confirmarHistorico(formData);
+        cerrarModalRevisionHojas();
+        if (resultado.requiereResolucion) {
+            abrirModalConflictosHistorico(resultado.preview);
+        } else {
+            await cargarPeriodo();
+            showToast(`Se importaron ${resultado.resultado.importadas} transacciones`);
+        }
+    } catch (err) {
+        if (err.filasConError && err.filasConError.length > 0) {
+            cerrarModalRevisionHojas();
             mostrarErroresImportacion(err.message, err.filasConError);
         } else {
             showToast(err.message, 'error');

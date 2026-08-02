@@ -230,6 +230,24 @@
                 </div>
             </div>
 
+            <div id="modal-revision-hojas" class="modal hidden">
+                <div class="modal-content modal-mapeo-content">
+                    <div class="modal-header">
+                        <h2>Revisá los períodos detectados</h2>
+                        <button type="button" id="btn-cerrar-revision-hojas" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
+                    <p class="mapeo-intro">Encontramos varias hojas en el archivo. Confirmá a qué mes/año corresponde cada una, o destildá las que no quieras importar.</p>
+                    <div id="revision-anio-comun-grupo" class="form-group hidden">
+                        <label class="np-label-sm">Año para las hojas que solo indican el mes</label>
+                        <input type="number" id="revision-anio-comun" min="2000" max="2100">
+                    </div>
+                    <div id="revision-hojas-list" class="revision-hojas-list"></div>
+                    <div class="modal-actions">
+                        <button type="button" id="btn-confirmar-revision-hojas" class="np-button np-pill">Confirmar importación</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="modal-import-errores" class="modal hidden">
                 <div class="modal-content">
                     <div class="modal-header">

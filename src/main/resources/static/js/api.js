@@ -52,6 +52,9 @@ const api = {
     importarTransacciones: (a, m, formData) => requestMultipart('POST', `/periodos/${a}/${m}/transacciones/importar`, formData),
     confirmarImportacion: (a, m, payload) => request('POST', `/periodos/${a}/${m}/transacciones/importar/confirmar`, payload),
     importarTransaccionesConMapeo: (a, m, formData) => requestMultipart('POST', `/periodos/${a}/${m}/transacciones/importar/mapeo`, formData),
+    detectarHistorico: (formData) => requestMultipart('POST', '/transacciones/importar-historico/detectar', formData),
+    confirmarHistorico: (formData) => requestMultipart('POST', '/transacciones/importar-historico/confirmar', formData),
+    confirmarConflictosHistorico: (payload) => request('POST', '/transacciones/importar-historico/confirmar-conflictos', payload),
 
     // Presupuesto
     listarPresupuestos: () => request('GET', '/presupuestos'),
