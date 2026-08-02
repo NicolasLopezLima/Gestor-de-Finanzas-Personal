@@ -192,8 +192,13 @@ public class TransaccionExcelService {
     // ── Importación: despacho por formato + validación compartida ──────────────
 
     public ImportParseResult parsearFilas(InputStream in, String nombreArchivo, int anioEsperado, int mesEsperado) {
+        return parsearFilas(in, nombreArchivo, anioEsperado, mesEsperado, null);
+    }
+
+    /** Igual que {@link #parsearFilas(InputStream, String, int, int)}, pero de una hoja puntual (null = comportamiento actual). */
+    public ImportParseResult parsearFilas(InputStream in, String nombreArchivo, int anioEsperado, int mesEsperado, String nombreHoja) {
         String fechaDefecto = LocalDate.of(anioEsperado, mesEsperado, 1).toString();
-        List<FilaCruda> filas = extraerFilasCrudas(in, nombreArchivo, ColumnMapping.PLANTILLA, fechaDefecto);
+        List<FilaCruda> filas = extraerFilasCrudas(in, nombreArchivo, ColumnMapping.PLANTILLA, fechaDefecto, nombreHoja);
         return validarFilas(filas, anioEsperado, mesEsperado);
     }
 
@@ -204,8 +209,13 @@ public class TransaccionExcelService {
      * pipeline (headerValido + validarFilas) corra exactamente igual sin cambios.
      */
     public ImportParseResult parsearFilasConMapeo(InputStream in, String nombreArchivo, int anioEsperado, int mesEsperado, ColumnMapping mapeo) {
+        return parsearFilasConMapeo(in, nombreArchivo, anioEsperado, mesEsperado, mapeo, null);
+    }
+
+    /** Igual que {@link #parsearFilasConMapeo(InputStream, String, int, int, ColumnMapping)}, pero de una hoja puntual. */
+    public ImportParseResult parsearFilasConMapeo(InputStream in, String nombreArchivo, int anioEsperado, int mesEsperado, ColumnMapping mapeo, String nombreHoja) {
         String fechaDefecto = LocalDate.of(anioEsperado, mesEsperado, 1).toString();
-        List<FilaCruda> filas = extraerFilasCrudas(in, nombreArchivo, mapeo, fechaDefecto);
+        List<FilaCruda> filas = extraerFilasCrudas(in, nombreArchivo, mapeo, fechaDefecto, nombreHoja);
         if (!filas.isEmpty()) {
             filas.set(0, new FilaCruda(false, HEADERS[0], HEADERS[1], HEADERS[2], HEADERS[3], HEADERS[4]));
         }
@@ -213,12 +223,144 @@ public class TransaccionExcelService {
     }
 
     public List<String> peekEncabezados(InputStream in, String nombreArchivo) {
+        return peekEncabezados(in, nombreArchivo, null);
+    }
+
+    /** Igual que {@link #peekEncabezados(InputStream, String)}, pero de una hoja puntual. */
+    public List<String> peekEncabezados(InputStream in, String nombreArchivo, String nombreHoja) {
         return switch (extensionDe(nombreArchivo)) {
-            case "xlsx", "xls" -> peekEncabezadosPoi(in);
-            case "ods" -> peekEncabezadosOds(in);
+            case "xlsx", "xls" -> peekEncabezadosPoi(in, nombreHoja);
+            case "ods" -> peekEncabezadosOds(in, nombreHoja);
             case "csv" -> peekEncabezadosCsv(in);
             default -> throw new ImportValidationException("Formato de archivo no soportado.", List.of());
         };
+    }
+
+    // ── Importación multi-hoja: listar hojas + inferir a qué período corresponde cada una ──
+
+    private static final String HOJA_INSTRUCCIONES = "Instrucciones";
+
+    /**
+     * Nombres de las hojas/tablas "de datos" del archivo (excluye la hoja "Instrucciones" que
+     * generamos nosotros mismos en la plantilla). Para CSV, que no tiene concepto de hojas
+     * múltiples, devuelve un único elemento — así el resto del flujo ("si hay más de una hoja,
+     * activar la revisión multi-período") nunca se dispara para CSV sin necesitar un caso
+     * especial en el resto del código.
+     */
+    public List<String> listarHojas(InputStream in, String nombreArchivo) {
+        return switch (extensionDe(nombreArchivo)) {
+            case "xlsx", "xls" -> listarHojasPoi(in);
+            case "ods" -> listarHojasOds(in);
+            case "csv" -> List.of(nombreArchivo);
+            default -> throw new ImportValidationException("Formato de archivo no soportado.", List.of());
+        };
+    }
+
+    private List<String> listarHojasPoi(InputStream in) {
+        Workbook wb;
+        try {
+            wb = WorkbookFactory.create(in);
+        } catch (Exception e) {
+            throw new ImportValidationException("El archivo no es un Excel válido (.xlsx/.xls) o está dañado.", List.of());
+        }
+        try {
+            List<String> nombres = new ArrayList<>();
+            for (int i = 0; i < wb.getNumberOfSheets(); i++) {
+                String nombre = wb.getSheetName(i);
+                if (!HOJA_INSTRUCCIONES.equalsIgnoreCase(nombre)) nombres.add(nombre);
+            }
+            return nombres;
+        } finally {
+            try {
+                wb.close();
+            } catch (IOException ignored) {
+                // no-op
+            }
+        }
+    }
+
+    private List<String> listarHojasOds(InputStream in) {
+        OdfSpreadsheetDocument doc;
+        try {
+            doc = OdfSpreadsheetDocument.loadDocument(in);
+        } catch (Exception e) {
+            throw new ImportValidationException("El archivo no es un ODS válido (.ods) o está dañado.", List.of());
+        }
+        try {
+            return doc.getTableList().stream()
+                    .map(OdfTable::getTableName)
+                    .filter(nombre -> !HOJA_INSTRUCCIONES.equalsIgnoreCase(nombre))
+                    .collect(Collectors.toList());
+        } finally {
+            try {
+                doc.close();
+            } catch (Exception ignored) {
+                // no-op
+            }
+        }
+    }
+
+    /** true si los encabezados matchean la plantilla, o si tienen al menos pinta de columnas de transacción. */
+    public boolean pareceHojaDeTransacciones(List<String> encabezados) {
+        if (headerCoincideTemplate(encabezados)) return true;
+        boolean tieneFechaOMonto = false, tieneDescripcion = false;
+        for (String h : encabezados) {
+            if (h == null) continue;
+            String t = h.trim().toLowerCase();
+            if (t.contains("fecha") || t.contains("monto") || t.contains("importe")) tieneFechaOMonto = true;
+            if (t.contains("descrip") || t.contains("concepto") || t.contains("detalle")) tieneDescripcion = true;
+        }
+        return tieneFechaOMonto && tieneDescripcion;
+    }
+
+    private static final String[] MESES_COMPLETOS = {
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    };
+    private static final String[] MESES_ABREVIADOS = {
+        "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"
+    };
+
+    /** Resultado de inferir un período a partir del nombre de una hoja: mes/año nulos si no matcheó nada. */
+    public record PeriodoInferido(Integer anio, Integer mes) {
+        public static final PeriodoInferido VACIO = new PeriodoInferido(null, null);
+    }
+
+    /**
+     * Intenta, en orden: "mes + año" (nombre completo o abreviado, con espacio/guion/barra),
+     * "MM-AAAA"/"AAAA-MM" numérico, y por último "mes solo" (sin año, que el llamador
+     * completa con el año más común del resto del archivo, o le pregunta al usuario).
+     */
+    public PeriodoInferido inferirPeriodoDeNombreHoja(String nombreHoja) {
+        if (nombreHoja == null) return PeriodoInferido.VACIO;
+        String texto = nombreHoja.trim().toLowerCase();
+
+        Integer mes = indiceDeMes(texto, MESES_COMPLETOS);
+        if (mes == null) mes = indiceDeMes(texto, MESES_ABREVIADOS);
+
+        java.util.regex.Matcher mAnio = java.util.regex.Pattern.compile("(19|20)\\d{2}").matcher(texto);
+        Integer anio = mAnio.find() ? Integer.parseInt(mAnio.group()) : null;
+
+        if (mes != null) return new PeriodoInferido(anio, mes);
+
+        java.util.regex.Matcher mNumerico = java.util.regex.Pattern.compile("(\\d{4})[-/](\\d{1,2})|(\\d{1,2})[-/](\\d{4})").matcher(texto);
+        if (mNumerico.find()) {
+            if (mNumerico.group(1) != null) {
+                int a = Integer.parseInt(mNumerico.group(1)), m = Integer.parseInt(mNumerico.group(2));
+                if (m >= 1 && m <= 12) return new PeriodoInferido(a, m);
+            } else {
+                int m = Integer.parseInt(mNumerico.group(3)), a = Integer.parseInt(mNumerico.group(4));
+                if (m >= 1 && m <= 12) return new PeriodoInferido(a, m);
+            }
+        }
+        return PeriodoInferido.VACIO;
+    }
+
+    private Integer indiceDeMes(String texto, String[] nombresMeses) {
+        for (int i = 0; i < nombresMeses.length; i++) {
+            if (texto.contains(nombresMeses[i])) return i + 1;
+        }
+        return null;
     }
 
     public boolean headerCoincideTemplate(List<String> encabezados) {
@@ -274,10 +416,10 @@ public class TransaccionExcelService {
                 "La columna \"" + nombreBuscado + "\" indicada ya no está presente en el archivo (" + etiquetaRol + ").", List.of());
     }
 
-    private List<FilaCruda> extraerFilasCrudas(InputStream in, String nombreArchivo, ColumnMapping mapeo, String fechaDefecto) {
+    private List<FilaCruda> extraerFilasCrudas(InputStream in, String nombreArchivo, ColumnMapping mapeo, String fechaDefecto, String nombreHoja) {
         return switch (extensionDe(nombreArchivo)) {
-            case "xlsx", "xls" -> extraerFilasPoi(in, mapeo, fechaDefecto);
-            case "ods" -> extraerFilasOds(in, mapeo, fechaDefecto);
+            case "xlsx", "xls" -> extraerFilasPoi(in, mapeo, fechaDefecto, nombreHoja);
+            case "ods" -> extraerFilasOds(in, mapeo, fechaDefecto, nombreHoja);
             case "csv" -> extraerFilasCsv(in, mapeo, fechaDefecto);
             default -> throw new ImportValidationException("Formato de archivo no soportado.", List.of());
         };
@@ -410,7 +552,7 @@ public class TransaccionExcelService {
 
     // ── Extractor .xlsx / .xls (Apache POI) ─────────────────────────────────────
 
-    private List<FilaCruda> extraerFilasPoi(InputStream in, ColumnMapping mapeo, String fechaDefecto) {
+    private List<FilaCruda> extraerFilasPoi(InputStream in, ColumnMapping mapeo, String fechaDefecto, String nombreHoja) {
         Workbook wb;
         try {
             wb = WorkbookFactory.create(in);
@@ -418,7 +560,7 @@ public class TransaccionExcelService {
             throw new ImportValidationException("El archivo no es un Excel válido (.xlsx/.xls) o está dañado.", List.of());
         }
         try {
-            Sheet sheet = resolverHojaPoi(wb);
+            Sheet sheet = resolverHojaPoi(wb, nombreHoja);
             List<FilaCruda> filas = new ArrayList<>();
             for (int i = 0; i <= sheet.getLastRowNum(); i++) {
                 filas.add(filaCrudaDePoi(sheet.getRow(i), mapeo, fechaDefecto));
@@ -433,16 +575,24 @@ public class TransaccionExcelService {
         }
     }
 
-    private Sheet resolverHojaPoi(Workbook wb) {
-        Sheet sheet = wb.getSheet(HOJA_TRANSACCIONES);
-        if (sheet == null) sheet = wb.getSheetAt(0);
+    /** {@code nombreHoja} null = comportamiento de siempre (hoja "Transacciones" o la primera). */
+    private Sheet resolverHojaPoi(Workbook wb, String nombreHoja) {
+        Sheet sheet = null;
+        if (nombreHoja != null) {
+            for (int i = 0; i < wb.getNumberOfSheets(); i++) {
+                if (wb.getSheetName(i).equalsIgnoreCase(nombreHoja)) { sheet = wb.getSheetAt(i); break; }
+            }
+        } else {
+            sheet = wb.getSheet(HOJA_TRANSACCIONES);
+            if (sheet == null) sheet = wb.getSheetAt(0);
+        }
         if (sheet == null) {
             throw new ImportValidationException("El archivo no contiene ninguna hoja.", List.of());
         }
         return sheet;
     }
 
-    private List<String> peekEncabezadosPoi(InputStream in) {
+    private List<String> peekEncabezadosPoi(InputStream in, String nombreHoja) {
         Workbook wb;
         try {
             wb = WorkbookFactory.create(in);
@@ -450,7 +600,7 @@ public class TransaccionExcelService {
             throw new ImportValidationException("El archivo no es un Excel válido (.xlsx/.xls) o está dañado.", List.of());
         }
         try {
-            Sheet sheet = resolverHojaPoi(wb);
+            Sheet sheet = resolverHojaPoi(wb, nombreHoja);
             Row header = sheet.getRow(0);
             if (header == null) return List.of();
             List<String> encabezados = new ArrayList<>();
@@ -510,7 +660,7 @@ public class TransaccionExcelService {
         if (cell == null) return true;
         return switch (cell.getCellType()) {
             case BLANK -> true;
-            case STRING -> cell.getStringCellValue().trim().isEmpty();
+            case STRING -> esVacio(cell.getStringCellValue());
             default -> false;
         };
     }
@@ -539,7 +689,10 @@ public class TransaccionExcelService {
     private String getCellString(Cell cell) {
         if (cell == null) return null;
         return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue().trim();
+            case STRING -> {
+                String val = cell.getStringCellValue().trim();
+                yield esVacio(val) ? null : val;
+            }
             case NUMERIC -> String.valueOf(cell.getNumericCellValue());
             case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
             default -> null;
@@ -553,7 +706,7 @@ public class TransaccionExcelService {
         }
         if (cell.getCellType() == CellType.STRING) {
             String val = cell.getStringCellValue().trim();
-            return val.isEmpty() ? null : val;
+            return esVacio(val) ? null : val;
         }
         return null;
     }
@@ -565,14 +718,14 @@ public class TransaccionExcelService {
         }
         if (cell.getCellType() == CellType.STRING) {
             String val = cell.getStringCellValue().trim();
-            return val.isEmpty() ? null : val;
+            return esVacio(val) ? null : val;
         }
         return null;
     }
 
     // ── Extractor .ods (ODF Toolkit / odfdom-java) ──────────────────────────────
 
-    private List<FilaCruda> extraerFilasOds(InputStream in, ColumnMapping mapeo, String fechaDefecto) {
+    private List<FilaCruda> extraerFilasOds(InputStream in, ColumnMapping mapeo, String fechaDefecto, String nombreHoja) {
         OdfSpreadsheetDocument doc;
         try {
             doc = OdfSpreadsheetDocument.loadDocument(in);
@@ -580,7 +733,7 @@ public class TransaccionExcelService {
             throw new ImportValidationException("El archivo no es un ODS válido (.ods) o está dañado.", List.of());
         }
         try {
-            OdfTable tabla = resolverTablaOds(doc);
+            OdfTable tabla = resolverTablaOds(doc, nombreHoja);
             List<FilaCruda> filas = new ArrayList<>();
             int filasVaciasSeguidas = 0;
             for (int i = 0; i < tabla.getRowCount() && filasVaciasSeguidas <= MAX_FILAS_VACIAS_SEGUIDAS_ODS; i++) {
@@ -598,19 +751,21 @@ public class TransaccionExcelService {
         }
     }
 
-    private OdfTable resolverTablaOds(OdfSpreadsheetDocument doc) {
+    /** {@code nombreHoja} null = comportamiento de siempre (tabla "Transacciones" o la primera). */
+    private OdfTable resolverTablaOds(OdfSpreadsheetDocument doc, String nombreHoja) {
         List<OdfTable> tablas = doc.getTableList();
+        String buscada = nombreHoja != null ? nombreHoja : HOJA_TRANSACCIONES;
         OdfTable tabla = tablas.stream()
-                .filter(t -> HOJA_TRANSACCIONES.equalsIgnoreCase(t.getTableName()))
+                .filter(t -> buscada.equalsIgnoreCase(t.getTableName()))
                 .findFirst()
-                .orElse(tablas.isEmpty() ? null : tablas.get(0));
+                .orElse(nombreHoja != null || tablas.isEmpty() ? null : tablas.get(0));
         if (tabla == null) {
             throw new ImportValidationException("El archivo no contiene ninguna hoja.", List.of());
         }
         return tabla;
     }
 
-    private List<String> peekEncabezadosOds(InputStream in) {
+    private List<String> peekEncabezadosOds(InputStream in, String nombreHoja) {
         OdfSpreadsheetDocument doc;
         try {
             doc = OdfSpreadsheetDocument.loadDocument(in);
@@ -618,7 +773,7 @@ public class TransaccionExcelService {
             throw new ImportValidationException("El archivo no es un ODS válido (.ods) o está dañado.", List.of());
         }
         try {
-            OdfTable tabla = resolverTablaOds(doc);
+            OdfTable tabla = resolverTablaOds(doc, nombreHoja);
             if (tabla.getRowCount() == 0) return List.of();
             OdfTableRow header = tabla.getRowByIndex(0);
             List<String> encabezados = new ArrayList<>();
@@ -682,8 +837,17 @@ public class TransaccionExcelService {
         return new FilaCruda(vacia, fecha, descripcion, categoria, tipo, monto);
     }
 
+    /**
+     * Muchas planillas financieras usan un guion (u otro placeholder corto) en vez de dejar la
+     * celda realmente en blanco para indicar "sin valor" — sin esto, una fila de relleno más
+     * allá de los datos reales (común al final de una lista, o en columnas con formato
+     * aplicado a muchas más filas de las que tienen datos) no se detecta como vacía y termina
+     * fallando al intentar parsear el placeholder como número.
+     */
     private boolean esVacio(String val) {
-        return val == null || val.trim().isEmpty();
+        if (val == null) return true;
+        String t = val.trim();
+        return t.isEmpty() || t.equals("-") || t.equals("--") || t.equals("—") || t.equals("–") || t.equalsIgnoreCase("n/a");
     }
 
     private String getOdfCellTexto(OdfTableCell cell) {

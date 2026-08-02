@@ -2193,6 +2193,52 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
     margin-top: 12px;
 }
 
+/* Revisión de hojas detectadas al importar historial completo (varios períodos) */
+.revision-hojas-list {
+    max-height: 360px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.revision-hoja-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: var(--np-surface);
+    box-shadow: 4px 4px 8px var(--np-shadow-dark), -4px -4px 8px var(--np-shadow-light);
+    flex-wrap: wrap;
+}
+
+.revision-hoja-row label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.revision-hoja-periodo {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.revision-mes-field { min-width: 130px; padding: 8px 12px; }
+
+.revision-anio-field input {
+    width: 80px;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--text);
+    text-align: center;
+}
+
 .tx-import-error-row {
     padding: 8px 0;
     border-bottom: 1px solid var(--border);
