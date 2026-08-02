@@ -72,4 +72,7 @@ const api = {
     agregarInversion: (dto) => request('POST', '/inversiones', dto),
     actualizarInversion: (id, dto) => request('PUT', `/inversiones/${id}`, dto),
     eliminarInversion: (id) => request('DELETE', `/inversiones/${id}`),
+    obtenerCotizaciones: () => request('GET', '/inversiones/cotizaciones'),
+    buscarTickers: (q) => request('GET', `/inversiones/buscar-tickers?q=${encodeURIComponent(q)}`),
+    obtenerEvolucion: (mercado, periodo) => request('GET', `/inversiones/evolucion?mercado=${mercado}&periodo=${periodo}`),
 };

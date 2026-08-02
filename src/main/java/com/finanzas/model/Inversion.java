@@ -31,6 +31,16 @@ public class Inversion {
     @Column(length = 500)
     private String notas;
 
+    @Column(length = 20)
+    private String ticker;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private MercadoInversion mercado;
+
+    @Column(precision = 15, scale = 4)
+    private BigDecimal cantidad;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
@@ -50,6 +60,12 @@ public class Inversion {
     public void setFechaRegistro(LocalDate fechaRegistro) { this.fechaRegistro = fechaRegistro; }
     public String getNotas() { return notas; }
     public void setNotas(String notas) { this.notas = notas; }
+    public String getTicker() { return ticker; }
+    public void setTicker(String ticker) { this.ticker = ticker; }
+    public MercadoInversion getMercado() { return mercado; }
+    public void setMercado(MercadoInversion mercado) { this.mercado = mercado; }
+    public BigDecimal getCantidad() { return cantidad; }
+    public void setCantidad(BigDecimal cantidad) { this.cantidad = cantidad; }
     public Usuario getUsuario() { return usuario; }
     public void setUsuario(Usuario usuario) { this.usuario = usuario; }
 }

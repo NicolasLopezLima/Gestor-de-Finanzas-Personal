@@ -176,6 +176,19 @@ function buildDonut(segments, { size = 180, stroke = 20 } = {}) {
     </svg>`;
 }
 
+function buildSparkline(precios, { width = 90, height = 28 } = {}) {
+    if (!precios || precios.length < 2) return '';
+    const min = Math.min(...precios), max = Math.max(...precios);
+    const rango = max - min || 1;
+    const puntos = precios.map((p, i) =>
+        `${(i / (precios.length - 1) * width).toFixed(1)},${(height - (p - min) / rango * height).toFixed(1)}`
+    ).join(' ');
+    const color = precios[precios.length - 1] >= precios[0] ? 'var(--success)' : 'var(--danger)';
+    return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+        <polyline points="${puntos}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
+}
+
 const TIPO_COLORS = {
     ACCIONES: '#0F172A',
     ORO: '#B45309',

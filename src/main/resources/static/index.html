@@ -630,12 +630,30 @@
                 <div class="inv-hero-value" id="inv-total-value"></div>
             </div>
 
-            <div class="inv-bento" id="inv-bento" style="display:none">
-                <div class="np-flat inv-donut-card">
-                    <div class="dash-donut-wrapper" id="inv-donut-wrapper" style="width:200px;height:200px;margin:0 0 20px"></div>
-                    <div class="inv-legend-grid" id="inv-legend-grid"></div>
+            <div class="inv-top-grid">
+                <div id="inv-evolucion" class="np-flat inv-evolucion-card">
+                    <div class="np-inset tx-field inv-evolucion-mercado-field">
+                        <span class="material-symbols-outlined tx-field-icon">public</span>
+                        <div id="inv-evolucion-mercado" class="custom-select"></div>
+                        <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                    </div>
+                    <div id="inv-evolucion-periodos" class="np-tabs"></div>
+                    <div id="inv-evolucion-variacion" class="inv-evolucion-variacion"></div>
+                    <div id="inv-evolucion-chart" class="inv-evolucion-chart"></div>
                 </div>
-                <div class="np-flat inv-rebalance-card" id="inv-rebalance-card"></div>
+
+                <div class="inv-top-grid-right" id="inv-bento" style="display:none">
+                    <div class="np-flat inv-donut-card">
+                        <div class="dash-donut-wrapper" id="inv-donut-wrapper" style="width:140px;height:140px;margin:0 0 20px"></div>
+                        <div class="inv-legend-grid" id="inv-legend-grid"></div>
+                    </div>
+                    <div class="np-flat inv-rebalance-card" id="inv-rebalance-card"></div>
+                </div>
+            </div>
+
+            <div id="inv-cotizaciones-resumen">
+                <div id="inv-cotiz-mercados"></div>
+                <div id="inv-cotiz-ranking"></div>
             </div>
 
             <div class="inv-posiciones-head">
@@ -672,6 +690,30 @@
                                 <div id="inv-tipo" class="custom-select"></div>
                                 <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                             </div>
+                        </div>
+                        <div id="inv-acciones-fields" class="hidden">
+                            <div class="form-group">
+                                <label>Ticker</label>
+                                <input type="text" id="inv-ticker" placeholder="Buscá por nombre o ticker, ej: Apple" autocomplete="off">
+                                <div id="inv-ticker-panel" class="custom-select-panel hidden"></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="np-label-sm">Mercado</label>
+                                <div class="np-flat tx-field">
+                                    <span class="material-symbols-outlined tx-field-icon">public</span>
+                                    <div id="inv-mercado" class="custom-select"></div>
+                                    <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Cantidad de acciones/CEDEARs</label>
+                                <input type="number" id="inv-cantidad" min="0.0001" step="0.0001">
+                            </div>
+                            <p class="mapeo-hint">Ticker, mercado y cantidad son opcionales. Si los completás, mostramos el valor de mercado actual de esta posición.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha de inversión</label>
+                            <input type="date" id="inv-fecha" required>
                         </div>
                         <div class="form-group">
                             <label>Monto Invertido</label>
