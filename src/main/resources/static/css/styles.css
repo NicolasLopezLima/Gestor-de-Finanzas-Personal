@@ -2228,6 +2228,16 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
     align-items: center;
 }
 
+.revision-seleccionar-todas {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
 .revision-mes-field { min-width: 130px; padding: 8px 12px; }
 
 .revision-anio-field input {
@@ -2245,6 +2255,27 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
     font-size: 13px;
 }
 .tx-import-error-row:last-child { border-bottom: none; }
+
+/* Estado de carga de botones que disparan una importación (puede tardar con archivos grandes) */
+.np-button.is-loading {
+    opacity: .75;
+    cursor: wait;
+    pointer-events: none;
+}
+
+.btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: btn-spinner-rotar .6s linear infinite;
+}
+
+@keyframes btn-spinner-rotar {
+    to { transform: rotate(360deg); }
+}
 
 /* Resolución de conflictos de importación (estilo git merge) */
 .modal-conflictos-content { max-width: 760px; max-height: 85vh; overflow-y: auto; }
@@ -2279,6 +2310,9 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
 
 .conflictos-footer { justify-content: space-between; align-items: center; }
 .conflictos-progreso { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.conflictos-bulk-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.conflict-bulk-btn.active { background: var(--text); color: var(--card-bg); }
 
 /* Asistente de mapeo de columnas */
 .mapeo-intro { color: var(--text-muted); font-size: 13px; margin: 4px 0 16px; }

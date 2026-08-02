@@ -67,6 +67,14 @@ async function initTransacciones() {
     document.getElementById('btn-confirmar-import').addEventListener('click', () => {
         if (conflictosEnModoHistorico) onConfirmarImportacionHistorico(); else onConfirmarImportacion();
     });
+    document.querySelectorAll('.conflict-bulk-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const conflictos = conflictosEnModoHistorico ? importPreviewHistorico.conflictos : importPreview.conflictos;
+            const resoluciones = conflictosEnModoHistorico ? resolucionesConflictoHistorico : resolucionesConflicto;
+            conflictos.forEach((_, i) => resoluciones.set(i, btn.dataset.accion));
+            if (conflictosEnModoHistorico) renderConflictosHistorico(); else renderConflictos();
+        });
+    });
     document.getElementById('modal-conflictos-import').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-conflictos-import')) cerrarModalConflictos();
     });
@@ -82,6 +90,9 @@ async function initTransacciones() {
         if (e.target === document.getElementById('modal-revision-hojas')) cerrarModalRevisionHojas();
     });
     document.getElementById('btn-confirmar-revision-hojas').addEventListener('click', onConfirmarRevisionHojas);
+    document.getElementById('revision-incluir-todas').addEventListener('change', (e) => {
+        document.querySelectorAll('.revision-incluir').forEach(cb => { cb.checked = e.target.checked; });
+    });
 
     // Toggle tipo (solo los botones del modal de transacción — el de categorías se maneja aparte)
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(btn => {
@@ -547,6 +558,26 @@ function descargarPlantilla() {
     window.location.href = `/api/periodos/${anio}/${mes}/transacciones/plantilla`;
 }
 
+// Deshabilita el botón y le muestra un spinner mientras dura una operación async — sin esto,
+// una importación de varias hojas puede tardar unos segundos y el usuario, al no ver nada,
+// tiende a apretar el botón varias veces (disparando la importación más de una vez).
+function setBotonCargando(boton, cargando, textoCargando = 'Importando…') {
+    if (!boton) return;
+    if (cargando) {
+        if (boton.dataset.textoOriginal === undefined) boton.dataset.textoOriginal = boton.innerHTML;
+        boton.disabled = true;
+        boton.classList.add('is-loading');
+        boton.innerHTML = `<span class="btn-spinner"></span> ${textoCargando}`;
+    } else {
+        boton.disabled = false;
+        boton.classList.remove('is-loading');
+        if (boton.dataset.textoOriginal !== undefined) {
+            boton.innerHTML = boton.dataset.textoOriginal;
+            delete boton.dataset.textoOriginal;
+        }
+    }
+}
+
 async function onImportarExcel(e) {
     const file = e.target.files[0];
     e.target.value = '';
@@ -559,6 +590,9 @@ async function onImportarExcel(e) {
     const formData = new FormData();
     formData.append('archivo', file);
 
+    const btnImportar = document.getElementById('btn-importar-excel');
+    setBotonCargando(btnImportar, true, 'Analizando archivo…');
+
     // Primero se detectan las hojas del archivo — si tiene más de una con pinta de
     // transacciones, se ofrece el flujo de revisión multi-período en vez de importar
     // directo al período que se está viendo (mismo File, FormData se puede reusar/
@@ -569,6 +603,7 @@ async function onImportarExcel(e) {
     } catch (err) {
         archivoPendienteImportacion = null;
         showToast(err.message, 'error');
+        setBotonCargando(btnImportar, false);
         return;
     }
 
@@ -588,10 +623,13 @@ async function onImportarExcel(e) {
             } else {
                 showToast(err.message, 'error');
             }
+        } finally {
+            setBotonCargando(btnImportar, false);
         }
         return;
     }
 
+    setBotonCargando(btnImportar, false);
     deteccionHistoricoActual = deteccion;
     if (deteccion.requiereMapeo) {
         modoMapeoHistorico = true;
@@ -731,6 +769,8 @@ async function onConfirmarImportacion() {
         entrante: c.entrante,
         accion: resolucionesConflicto.get(i),
     }));
+    const btnConfirmar = document.getElementById('btn-confirmar-import');
+    setBotonCargando(btnConfirmar, true, 'Importando…');
     try {
         const resultado = await api.confirmarImportacion(importPreview.anio, importPreview.mes, {
             nuevas: importPreview.nuevas,
@@ -742,6 +782,8 @@ async function onConfirmarImportacion() {
         showToast(`Se importaron ${resultado.importadas} transacciones`);
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        setBotonCargando(btnConfirmar, false);
     }
 }
 
@@ -806,6 +848,8 @@ async function onConfirmarImportacionHistorico() {
         entrante: c.entrante,
         accion: resolucionesConflictoHistorico.get(i),
     }));
+    const btnConfirmar = document.getElementById('btn-confirmar-import');
+    setBotonCargando(btnConfirmar, true, 'Importando…');
     try {
         const resultado = await api.confirmarConflictosHistorico({
             nuevas: importPreviewHistorico.nuevas,
@@ -816,6 +860,8 @@ async function onConfirmarImportacionHistorico() {
         showToast(`Se importaron ${resultado.importadas} transacciones`);
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        setBotonCargando(btnConfirmar, false);
     }
 }
 
@@ -887,6 +933,8 @@ async function onSubmitMapeoWizard(e) {
     formData.append('columnaDescripcionGasto', columnaDescripcionGasto);
     formData.append('columnaMontoGasto', columnaMontoGasto);
 
+    const btnMapeo = e.target.querySelector('button[type="submit"]');
+    setBotonCargando(btnMapeo, true, 'Importando…');
     try {
         const resultado = await api.importarTransaccionesConMapeo(anio, mes, formData);
         cerrarModalMapeo();
@@ -898,6 +946,8 @@ async function onSubmitMapeoWizard(e) {
         } else {
             showToast(err.message, 'error');
         }
+    } finally {
+        setBotonCargando(btnMapeo, false);
     }
 }
 
@@ -909,6 +959,7 @@ function abrirModalRevisionHojas() {
     // hoja con columnas que no adivinamos sigue siendo elegible, en vez de quedar invisible.
     const hojas = deteccionHistoricoActual.hojas;
     renderFilasRevisionHojas(hojas);
+    document.getElementById('revision-incluir-todas').checked = hojas.every(h => h.incluir);
     document.getElementById('revision-anio-comun-grupo').classList.toggle('hidden', !deteccionHistoricoActual.requiereAnioComun);
     document.getElementById('revision-anio-comun').value = '';
     document.getElementById('modal-revision-hojas').classList.remove('hidden');
@@ -963,6 +1014,8 @@ async function onConfirmarRevisionHojas() {
     formData.append('archivo', archivoPendienteImportacion);
     formData.append('seleccion', JSON.stringify({ hojas: seleccionHojas, mapeoOpcional: mapeoHistoricoResuelto }));
 
+    const btnConfirmar = document.getElementById('btn-confirmar-revision-hojas');
+    setBotonCargando(btnConfirmar, true, 'Importando…');
     try {
         const resultado = await api.confirmarHistorico(formData);
         cerrarModalRevisionHojas();
@@ -979,5 +1032,7 @@ async function onConfirmarRevisionHojas() {
         } else {
             showToast(err.message, 'error');
         }
+    } finally {
+        setBotonCargando(btnConfirmar, false);
     }
 }

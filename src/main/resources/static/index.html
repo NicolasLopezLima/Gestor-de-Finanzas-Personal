@@ -241,6 +241,9 @@
                         <label class="np-label-sm">Año para las hojas que solo indican el mes</label>
                         <input type="number" id="revision-anio-comun" min="2000" max="2100">
                     </div>
+                    <label class="revision-seleccionar-todas">
+                        <input type="checkbox" id="revision-incluir-todas" checked> Seleccionar todas las hojas
+                    </label>
                     <div id="revision-hojas-list" class="revision-hojas-list"></div>
                     <div class="modal-actions">
                         <button type="button" id="btn-confirmar-revision-hojas" class="np-button np-pill">Confirmar importación</button>
@@ -266,6 +269,12 @@
                         <button type="button" id="btn-cerrar-conflictos-import" class="btn-icon" style="font-size:20px">✕</button>
                     </div>
                     <p class="conflictos-intro">Estas filas del Excel coinciden en fecha, descripción y monto con transacciones que ya existen en este período. Elegí qué hacer con cada una.</p>
+                    <div class="conflictos-bulk-actions">
+                        <span class="np-label-sm">Aplicar a todos:</span>
+                        <button type="button" class="np-button np-pill np-pill-sm conflict-bulk-btn" data-accion="MANTENER_EXISTENTE">Mantener existente</button>
+                        <button type="button" class="np-button np-pill np-pill-sm conflict-bulk-btn" data-accion="USAR_EXCEL">Usar versión Excel</button>
+                        <button type="button" class="np-button np-pill np-pill-sm conflict-bulk-btn" data-accion="MANTENER_AMBAS">Mantener ambas</button>
+                    </div>
                     <div id="conflictos-list" class="conflictos-list"></div>
                     <div class="conflictos-preview">
                         <h3>Vista previa del resultado</h3>
