@@ -93,6 +93,16 @@ async function initTransacciones() {
     document.getElementById('revision-incluir-todas').addEventListener('change', (e) => {
         document.querySelectorAll('.revision-incluir').forEach(cb => { cb.checked = e.target.checked; });
     });
+    // Rellena en vivo solo las filas que no fueron editadas a mano (ni traían año detectado) —
+    // se guía por el flag "editado" y no por si el campo está vacío, así corrige sin problema
+    // mientras el usuario todavía está tipeando el año dígito por dígito (ej. "2025").
+    document.getElementById('revision-anio-comun').addEventListener('input', (e) => {
+        const anio = e.target.value;
+        if (!anio) return;
+        document.querySelectorAll('.revision-anio-input').forEach(input => {
+            if (!input.dataset.editado) input.value = anio;
+        });
+    });
 
     // Toggle tipo (solo los botones del modal de transacción — el de categorías se maneja aparte)
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(btn => {
@@ -552,10 +562,38 @@ async function cerrarPeriodo() {
     }
 }
 
-function descargarPlantilla() {
-    const anio = document.getElementById('periodo-anio').value;
-    const mes = document.getElementById('periodo-mes').value;
-    window.location.href = `/api/periodos/${anio}/${mes}/transacciones/plantilla`;
+// A diferencia del resto de los endpoints, esto devuelve un archivo binario en vez de JSON —
+// por eso no usa api.request/requestMultipart y maneja la respuesta a mano (fetch + blob),
+// en vez de un simple window.location.href, para poder mostrar un toast si el usuario todavía
+// no tiene ninguna transacción cargada (el backend devuelve un error en ese caso).
+async function descargarPlantilla() {
+    const btn = document.getElementById('btn-descargar-plantilla');
+    setBotonCargando(btn, true, 'Generando…');
+    try {
+        const res = await api.exportarHistorico();
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = '/login';
+            return;
+        }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'No se pudo generar el archivo.' }));
+            showToast(err.error, 'error');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'transacciones-historial.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        showToast('No se pudo generar el archivo.', 'error');
+    } finally {
+        setBotonCargando(btn, false);
+    }
 }
 
 // Deshabilita el botón y le muestra un spinner mientras dura una operación async — sin esto,
@@ -969,17 +1007,24 @@ function renderFilasRevisionHojas(hojas) {
     const cont = document.getElementById('revision-hojas-list');
     cont.innerHTML = hojas.map((h, i) => `
         <div class="revision-hoja-row">
-            <label><input type="checkbox" class="revision-incluir" id="revision-incluir-${i}" ${h.incluir ? 'checked' : ''}> ${h.nombreHoja}</label>
+            <label><input type="checkbox" class="revision-incluir np-checkbox" id="revision-incluir-${i}" ${h.incluir ? 'checked' : ''}> ${h.nombreHoja}</label>
             <div class="revision-hoja-periodo">
                 <div class="np-flat tx-field revision-mes-field">
                     <div id="revision-mes-${i}" class="custom-select"></div>
                 </div>
                 <div class="np-flat tx-field revision-anio-field">
-                    <input type="number" id="revision-anio-${i}" min="2000" max="2100" placeholder="Año" value="${h.anioInferido ?? ''}">
+                    <input type="number" id="revision-anio-${i}" class="revision-anio-input" min="2000" max="2100" placeholder="Año" value="${h.anioInferido ?? ''}" ${h.anioInferido ? 'data-editado="true"' : ''}>
                 </div>
             </div>
         </div>`).join('');
     hojas.forEach((h, i) => fillMesCustomSelect(`revision-mes-${i}`, h.mesInferido || 1));
+    // Marca la fila como "editada" solo ante tipeo real del usuario (setear .value por código,
+    // como hace el autocompletado del año común, no dispara 'input') — así el año común puede
+    // seguir actualizando una fila mientras el usuario todavía la está completando de a un
+    // dígito por vez, pero deja de tocarla en cuanto la persona la edita a mano.
+    cont.querySelectorAll('.revision-anio-input').forEach(input => {
+        input.addEventListener('input', () => { input.dataset.editado = 'true'; });
+    });
 }
 
 function cerrarModalRevisionHojas() {

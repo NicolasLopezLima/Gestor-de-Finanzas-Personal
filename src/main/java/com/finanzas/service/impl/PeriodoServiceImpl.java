@@ -266,11 +266,16 @@ public class PeriodoServiceImpl implements PeriodoService {
     }
 
     @Override
-    public byte[] generarPlantillaTransacciones(int anio, int mes, Long usuarioId) {
-        List<TransaccionDTO> existentes = periodoRepo.findByAnioAndMesAndUsuarioId(anio, mes, usuarioId)
-                .map(p -> transaccionRepo.findByPeriodoId(p.getId()).stream().map(this::toDTO).collect(Collectors.toList()))
-                .orElse(List.of());
-        return excelService.generarPlantilla(anio, mes, existentes);
+    public byte[] generarExportacionHistorica(Long usuarioId) {
+        List<TransaccionExcelService.PeriodoParaExportar> conDatos = periodoRepo.findAllByUsuarioIdOrderByAnioAscMesAsc(usuarioId).stream()
+                .map(p -> new TransaccionExcelService.PeriodoParaExportar(p.getAnio(), p.getMes(),
+                        transaccionRepo.findByPeriodoId(p.getId()).stream().map(this::toDTO).collect(Collectors.toList())))
+                .filter(p -> !p.transacciones().isEmpty())
+                .collect(Collectors.toList());
+        if (conDatos.isEmpty()) {
+            throw new IllegalStateException("Todavía no cargaste ninguna transacción para exportar.");
+        }
+        return excelService.generarExportacionHistorica(conDatos);
     }
 
     @Override

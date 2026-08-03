@@ -101,8 +101,8 @@
             <div class="summary-bar" id="summary-bar"></div>
 
             <div class="tx-import-toolbar">
-                <button type="button" id="btn-descargar-plantilla" class="np-button np-pill np-pill-sm">
-                    <span class="material-symbols-outlined">download</span> Descargar plantilla
+                <button type="button" id="btn-descargar-plantilla" class="np-button np-pill np-pill-sm" title="Exportar todo tu historial cargado, un mes por hoja">
+                    <span class="material-symbols-outlined">download</span> Exportar historial
                 </button>
                 <button type="button" id="btn-importar-excel" class="np-button np-pill np-pill-sm">
                     <span class="material-symbols-outlined">upload_file</span> Importar Excel
@@ -113,7 +113,7 @@
                     <div id="filtro-categoria" class="custom-select"></div>
                     <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
                 </div>
-                <small class="tx-import-hint">La plantilla incluye tus movimientos actuales del período. Si la volvés a importar sin editarla, se van a duplicar. Formatos aceptados para importar: .xlsx, .xls, .ods, .csv.</small>
+                <small class="tx-import-hint">La exportación incluye todos tus movimientos ya cargados, un mes por hoja. Si la volvés a importar sin editarla, se van a duplicar. Formatos aceptados para importar: .xlsx, .xls, .ods, .csv.</small>
             </div>
 
             <div class="np-tabs">
@@ -237,12 +237,18 @@
                         <button type="button" id="btn-cerrar-revision-hojas" class="btn-icon" style="font-size:20px">✕</button>
                     </div>
                     <p class="mapeo-intro">Encontramos varias hojas en el archivo. Confirmá a qué mes/año corresponde cada una, o destildá las que no quieras importar.</p>
-                    <div id="revision-anio-comun-grupo" class="form-group hidden">
-                        <label class="np-label-sm">Año para las hojas que solo indican el mes</label>
-                        <input type="number" id="revision-anio-comun" min="2000" max="2100">
+                    <div id="revision-anio-comun-grupo" class="revision-anio-comun-grupo hidden">
+                        <span class="material-symbols-outlined revision-anio-comun-icon">calendar_month</span>
+                        <div class="revision-anio-comun-texto">
+                            <p>Algunas hojas no indican el año. Escribí uno para completarlas rápido.</p>
+                            <small>Solo rellena las filas que todavía no tienen año — las demás quedan como están, y cualquiera se puede corregir a mano.</small>
+                        </div>
+                        <div class="np-flat tx-field revision-anio-comun-field">
+                            <input type="number" id="revision-anio-comun" min="2000" max="2100" placeholder="Año">
+                        </div>
                     </div>
                     <label class="revision-seleccionar-todas">
-                        <input type="checkbox" id="revision-incluir-todas" checked> Seleccionar todas las hojas
+                        <input type="checkbox" id="revision-incluir-todas" class="np-checkbox" checked> Seleccionar todas las hojas
                     </label>
                     <div id="revision-hojas-list" class="revision-hojas-list"></div>
                     <div class="modal-actions">

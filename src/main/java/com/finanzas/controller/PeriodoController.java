@@ -11,7 +11,6 @@ import com.finanzas.model.Usuario;
 import com.finanzas.service.PeriodoService;
 import com.finanzas.service.UsuarioService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -76,17 +75,6 @@ public class PeriodoController {
     public ResponseEntity<PeriodoResumenDTO> cerrar(@PathVariable int anio, @PathVariable int mes) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
         return ResponseEntity.ok(periodoService.cerrarPeriodo(anio, mes, uid));
-    }
-
-    @GetMapping("/{anio}/{mes}/transacciones/plantilla")
-    public ResponseEntity<byte[]> descargarPlantilla(@PathVariable int anio, @PathVariable int mes) {
-        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
-        byte[] archivo = periodoService.generarPlantillaTransacciones(anio, mes, uid);
-        String filename = String.format("plantilla-transacciones-%d-%02d.xlsx", anio, mes);
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .body(archivo);
     }
 
     @PostMapping(value = "/{anio}/{mes}/transacciones/importar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
