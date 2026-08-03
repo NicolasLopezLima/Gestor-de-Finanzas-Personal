@@ -527,7 +527,7 @@ tr:hover td { background: var(--primary-light) !important; }
 
 .np-pill-sm { border-radius: 99px; padding: 7px 16px; font-size: 12px; }
 
-/* Insights de Metas (texto de ejemplo hasta que haya cálculo real) */
+/* Insights de Metas: ritmo de ahorro real (donut + barras), calculado en el backend */
 .metas-insights {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -543,13 +543,18 @@ tr:hover td { background: var(--primary-light) !important; }
     border-radius: var(--radius);
     padding: 20px;
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
+    flex-direction: column;
+}
+
+.metas-insight-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .metas-insight-icon {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -557,9 +562,28 @@ tr:hover td { background: var(--primary-light) !important; }
     font-size: 16px;
     flex-shrink: 0;
 }
+.metas-insight-icon .material-symbols-outlined { font-size: 17px; }
 
 .metas-insight-title { font-size: 15px; font-weight: 700; }
-.metas-insight-text { font-size: 13px; margin-top: 4px; line-height: 1.5; }
+.metas-insight-text { font-size: 13px; margin-top: 8px; line-height: 1.5; }
+
+.metas-insight-donut-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.metas-insight-donut-caption { font-size: 12px; font-weight: 600; }
+
+.metas-ritmo-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+.metas-ritmo-total {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,.15);
+}
+.metas-ritmo-row-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
 
 .metas-insight-primary {
     background: var(--primary);
@@ -567,6 +591,8 @@ tr:hover td { background: var(--primary-light) !important; }
 }
 .metas-insight-primary .metas-insight-icon { background: rgba(255,255,255,.12); }
 .metas-insight-primary .metas-insight-text { color: rgba(255,255,255,.75); }
+.metas-insight-primary .metas-ritmo-row-label { color: rgba(255,255,255,.85); }
+.metas-insight-primary .progress-bar-track { background: rgba(255,255,255,.18); }
 
 .metas-insight-secondary {
     background: rgba(16,185,129,.12);
@@ -574,6 +600,7 @@ tr:hover td { background: var(--primary-light) !important; }
 }
 .metas-insight-secondary .metas-insight-icon { background: rgba(16,185,129,.18); }
 .metas-insight-secondary .metas-insight-text { color: var(--text); opacity: .8; }
+.metas-insight-secondary .metas-insight-donut-caption { color: var(--text); }
 
 .meta-card-head {
     padding: 18px 20px;

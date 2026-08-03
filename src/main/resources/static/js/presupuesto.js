@@ -2,9 +2,9 @@ let presupuestoActual = null;
 let metasDisponibles = [];
 
 const TIPOS_FIJOS = [
-    { tipo: 'GASTO',     label: 'Gasto',     icon: '🛒', mIcon: 'shopping_cart', descripcion: 'Gasto diario disponible', tag: 'Variable' },
-    { tipo: 'COLCHON',   label: 'Colchón',   icon: '🛡', mIcon: 'savings',       descripcion: 'Fondo de emergencia',      tag: 'Meta' },
-    { tipo: 'INVERSION', label: 'Inversión', icon: '📈', mIcon: 'trending_up',   descripcion: 'Inversiones',              tag: 'Crecimiento' },
+    { tipo: 'GASTO',     label: 'Gasto',     mIcon: 'shopping_cart', descripcion: 'Gasto diario disponible', tag: 'Variable' },
+    { tipo: 'COLCHON',   label: 'Colchón',   mIcon: 'savings',       descripcion: 'Fondo de emergencia',      tag: 'Meta' },
+    { tipo: 'INVERSION', label: 'Inversión', mIcon: 'trending_up',   descripcion: 'Inversiones',              tag: 'Crecimiento' },
 ];
 
 const PIE_COLORS = ['#0F172A','#10B981','#475569','#0D9488','#B45309','#94A3B8','#1E3A5F','#64748B'];
@@ -70,7 +70,7 @@ function renderFilasFijas(asignaciones) {
         return `
         <div class="asig-row asig-fija" data-tipo="${tf.tipo}">
             <div class="asig-fija-label">
-                <span class="asig-icon">${tf.icon}</span>
+                <span class="asig-icon"><span class="material-symbols-outlined">${tf.mIcon}</span></span>
                 <span class="asig-nombre">${tf.label}</span>
                 <small class="asig-desc">${tf.descripcion}</small>
             </div>

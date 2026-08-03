@@ -2,6 +2,7 @@ package com.finanzas.service;
 
 import com.finanzas.dto.AbonoMetaDTO;
 import com.finanzas.dto.MetaFinancieraDTO;
+import com.finanzas.dto.MetasRitmoDTO;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -13,4 +14,5 @@ public interface MetaFinancieraService {
     List<MetaFinancieraDTO> listarTodas(Long usuarioId);
     MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, Long usuarioId);
     List<AbonoMetaDTO> listarAbonos(Long metaId, Long usuarioId);
+    MetasRitmoDTO obtenerResumenRitmo(Long usuarioId);
 }

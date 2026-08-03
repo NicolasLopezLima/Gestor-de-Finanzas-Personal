@@ -9,6 +9,7 @@ import com.finanzas.dto.SeleccionHojaDTO;
 import com.finanzas.dto.SeleccionMapeoDTO;
 import com.finanzas.dto.TransaccionDTO;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface PeriodoService {
@@ -28,4 +29,11 @@ public interface PeriodoService {
     ImportacionResponseDTO importarHistorico(List<SeleccionHojaDTO> seleccion, SeleccionMapeoDTO mapeoOpcional,
                                               InputStream excel, String nombreArchivo, Long usuarioId);
     ImportResultDTO confirmarImportacionHistorico(ImportConfirmacionRequestDTO request, Long usuarioId);
+
+    /**
+     * Promedio de (ingresos - gastos) de los últimos hasta 6 meses ya completos (no cuenta el
+     * mes actual, todavía en curso) con al menos un período cargado. Devuelve {@code null} si
+     * no hay ningún mes completo con datos — nunca un promedio inventado sobre cero meses.
+     */
+    BigDecimal obtenerDisponibleMensualPromedio(Long usuarioId);
 }
