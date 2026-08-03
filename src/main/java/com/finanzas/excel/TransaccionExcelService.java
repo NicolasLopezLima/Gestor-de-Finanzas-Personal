@@ -76,104 +76,122 @@ public class TransaccionExcelService {
         "Servicios", "Restaurantes", "Tecnología", "Viajes", "Deporte", "Seguros", "Otros gastos"
     };
 
-    // ── Generación de la plantilla (.xlsx únicamente) ───────────────────────────
+    // ── Generación de la exportación histórica (.xlsx, una hoja por mes con datos) ──────────
 
-    public byte[] generarPlantilla(int anio, int mes, List<TransaccionDTO> existentes) {
+    /** Datos de un mes a exportar: cada uno se vuelca en su propia hoja, nombrada "Mes AAAA". */
+    public record PeriodoParaExportar(int anio, int mes, List<TransaccionDTO> transacciones) {}
+
+    private record EstilosExportacion(CellStyle header, CellStyle fecha, CellStyle monto) {}
+
+    public byte[] generarExportacionHistorica(List<PeriodoParaExportar> periodos) {
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
-            Sheet sheet = wb.createSheet(HOJA_TRANSACCIONES);
-
-            CellStyle headerStyle = wb.createCellStyle();
-            Font headerFont = wb.createFont();
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-
-            Row header = sheet.createRow(0);
-            for (int i = 0; i < HEADERS.length; i++) {
-                Cell cell = header.createCell(i);
-                cell.setCellValue(HEADERS[i]);
-                cell.setCellStyle(headerStyle);
+            EstilosExportacion estilos = crearEstilosExportacion(wb);
+            for (PeriodoParaExportar p : periodos) {
+                escribirHojaTransacciones(wb, nombreHojaPeriodo(p.anio(), p.mes()), p.transacciones(), estilos);
             }
-
-            CreationHelper createHelper = wb.getCreationHelper();
-            CellStyle dateStyle = wb.createCellStyle();
-            dateStyle.setDataFormat(createHelper.createDataFormat().getFormat("yyyy-mm-dd"));
-            CellStyle montoStyle = wb.createCellStyle();
-            montoStyle.setDataFormat(createHelper.createDataFormat().getFormat("#,##0.00"));
-
-            int filaActual = 1;
-
-            // Pre-completa las filas con las transacciones que el usuario ya cargó en este período
-            for (TransaccionDTO t : existentes) {
-                Row row = sheet.createRow(filaActual);
-                Cell fechaCell = row.createCell(0);
-                fechaCell.setCellValue(t.getFecha());
-                fechaCell.setCellStyle(dateStyle);
-                row.createCell(1).setCellValue(t.getDescripcion());
-                row.createCell(2).setCellValue(t.getCategoria());
-                row.createCell(3).setCellValue(t.getTipo().name());
-                Cell montoCell = row.createCell(4);
-                montoCell.setCellValue(t.getMonto().doubleValue());
-                montoCell.setCellStyle(montoStyle);
-                filaActual++;
-            }
-
-            int primeraFilaVacia = filaActual;
-            int ultimaFila = primeraFilaVacia + FILAS_PLANTILLA - 1;
-            for (int i = primeraFilaVacia; i <= ultimaFila; i++) {
-                Row row = sheet.createRow(i);
-                row.createCell(0).setCellStyle(dateStyle);
-                row.createCell(1);
-                row.createCell(2);
-                row.createCell(3);
-                row.createCell(4).setCellStyle(montoStyle);
-            }
-
-            DataValidationHelper dvHelper = sheet.getDataValidationHelper();
-            DataValidationConstraint dvConstraint = dvHelper.createExplicitListConstraint(new String[]{"INGRESO", "GASTO"});
-            CellRangeAddressList addressList = new CellRangeAddressList(1, ultimaFila, 3, 3);
-            DataValidation validation = dvHelper.createValidation(dvConstraint, addressList);
-            validation.setShowErrorBox(true);
-            validation.setErrorStyle(DataValidation.ErrorStyle.STOP);
-            validation.createErrorBox("Valor inválido", "Seleccioná INGRESO o GASTO.");
-            sheet.addValidationData(validation);
-
-            sheet.setColumnWidth(0, 14 * 256);
-            sheet.setColumnWidth(1, 32 * 256);
-            sheet.setColumnWidth(2, 22 * 256);
-            sheet.setColumnWidth(3, 12 * 256);
-            sheet.setColumnWidth(4, 14 * 256);
-
-            crearHojaInstrucciones(wb, anio, mes, !existentes.isEmpty());
+            crearHojaInstrucciones(wb);
             wb.setActiveSheet(0);
 
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             wb.write(bos);
             return bos.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException("No se pudo generar la plantilla de Excel.", e);
+            throw new RuntimeException("No se pudo generar la exportación de Excel.", e);
         }
     }
 
-    private void crearHojaInstrucciones(XSSFWorkbook wb, int anio, int mes, boolean tienePrecargadas) {
+    private String nombreHojaPeriodo(int anio, int mes) {
+        String mesTexto = MESES_COMPLETOS[mes - 1];
+        return Character.toUpperCase(mesTexto.charAt(0)) + mesTexto.substring(1) + " " + anio;
+    }
+
+    private EstilosExportacion crearEstilosExportacion(XSSFWorkbook wb) {
+        CellStyle headerStyle = wb.createCellStyle();
+        Font headerFont = wb.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        CreationHelper createHelper = wb.getCreationHelper();
+        CellStyle dateStyle = wb.createCellStyle();
+        dateStyle.setDataFormat(createHelper.createDataFormat().getFormat("yyyy-mm-dd"));
+        CellStyle montoStyle = wb.createCellStyle();
+        montoStyle.setDataFormat(createHelper.createDataFormat().getFormat("#,##0.00"));
+        return new EstilosExportacion(headerStyle, dateStyle, montoStyle);
+    }
+
+    private void escribirHojaTransacciones(XSSFWorkbook wb, String nombreHoja, List<TransaccionDTO> existentes, EstilosExportacion estilos) {
+        Sheet sheet = wb.createSheet(nombreHoja);
+
+        Row header = sheet.createRow(0);
+        for (int i = 0; i < HEADERS.length; i++) {
+            Cell cell = header.createCell(i);
+            cell.setCellValue(HEADERS[i]);
+            cell.setCellStyle(estilos.header());
+        }
+
+        int filaActual = 1;
+
+        // Pre-completa las filas con las transacciones que el usuario ya cargó en este mes
+        for (TransaccionDTO t : existentes) {
+            Row row = sheet.createRow(filaActual);
+            Cell fechaCell = row.createCell(0);
+            fechaCell.setCellValue(t.getFecha());
+            fechaCell.setCellStyle(estilos.fecha());
+            row.createCell(1).setCellValue(t.getDescripcion());
+            row.createCell(2).setCellValue(t.getCategoria());
+            row.createCell(3).setCellValue(t.getTipo().name());
+            Cell montoCell = row.createCell(4);
+            montoCell.setCellValue(t.getMonto().doubleValue());
+            montoCell.setCellStyle(estilos.monto());
+            filaActual++;
+        }
+
+        int primeraFilaVacia = filaActual;
+        int ultimaFila = primeraFilaVacia + FILAS_PLANTILLA - 1;
+        for (int i = primeraFilaVacia; i <= ultimaFila; i++) {
+            Row row = sheet.createRow(i);
+            row.createCell(0).setCellStyle(estilos.fecha());
+            row.createCell(1);
+            row.createCell(2);
+            row.createCell(3);
+            row.createCell(4).setCellStyle(estilos.monto());
+        }
+
+        DataValidationHelper dvHelper = sheet.getDataValidationHelper();
+        DataValidationConstraint dvConstraint = dvHelper.createExplicitListConstraint(new String[]{"INGRESO", "GASTO"});
+        CellRangeAddressList addressList = new CellRangeAddressList(1, ultimaFila, 3, 3);
+        DataValidation validation = dvHelper.createValidation(dvConstraint, addressList);
+        validation.setShowErrorBox(true);
+        validation.setErrorStyle(DataValidation.ErrorStyle.STOP);
+        validation.createErrorBox("Valor inválido", "Seleccioná INGRESO o GASTO.");
+        sheet.addValidationData(validation);
+
+        sheet.setColumnWidth(0, 14 * 256);
+        sheet.setColumnWidth(1, 32 * 256);
+        sheet.setColumnWidth(2, 22 * 256);
+        sheet.setColumnWidth(3, 12 * 256);
+        sheet.setColumnWidth(4, 14 * 256);
+    }
+
+    private void crearHojaInstrucciones(XSSFWorkbook wb) {
         Sheet sheet = wb.createSheet("Instrucciones");
         int r = 0;
-        r = escribirLinea(sheet, r, "Cómo completar esta plantilla");
+        r = escribirLinea(sheet, r, "Cómo completar este archivo");
         r++;
-        r = escribirLinea(sheet, r, "- Fecha: formato AAAA-MM-DD, debe corresponder a " + String.format("%02d/%d", mes, anio) + ".");
+        r = escribirLinea(sheet, r, "- Cada hoja corresponde a un mes (el nombre de la hoja ya indica cuál).");
+        r = escribirLinea(sheet, r, "- Fecha: formato AAAA-MM-DD, debe corresponder al mes de esa hoja.");
         r = escribirLinea(sheet, r, "- Descripción: texto libre, no puede estar vacío.");
         r = escribirLinea(sheet, r, "- Categoría: texto libre (ver sugerencias más abajo), no puede estar vacío.");
         r = escribirLinea(sheet, r, "- Tipo: INGRESO o GASTO (desplegable disponible en la columna).");
         r = escribirLinea(sheet, r, "- Monto: número mayor a 0.");
         r++;
-        if (tienePrecargadas) {
-            r = escribirLinea(sheet, r, "IMPORTANTE: las primeras filas de la hoja \"Transacciones\" ya son tus movimientos");
-            r = escribirLinea(sheet, r, "actuales de este período (solo a modo de referencia/edición). Si volvés a importar");
-            r = escribirLinea(sheet, r, "este archivo sin borrarlas, se van a crear como transacciones NUEVAS y duplicadas.");
-            r = escribirLinea(sheet, r, "Borrá esas filas antes de importar, o dejá solo las filas nuevas que quieras agregar.");
-            r++;
-        }
+        r = escribirLinea(sheet, r, "IMPORTANTE: las primeras filas de cada hoja ya son tus movimientos actuales de");
+        r = escribirLinea(sheet, r, "ese mes (a modo de referencia/edición). Si volvés a importar este archivo sin");
+        r = escribirLinea(sheet, r, "borrarlas, se van a crear como transacciones NUEVAS — el importador te va a avisar");
+        r = escribirLinea(sheet, r, "de los posibles duplicados antes de confirmar, para que elijas qué hacer con cada uno.");
+        r++;
         r = escribirLinea(sheet, r, "Categorías sugeridas para INGRESO:");
         for (String cat : CATEGORIAS_INGRESO) r = escribirLinea(sheet, r, "  • " + cat);
         r++;

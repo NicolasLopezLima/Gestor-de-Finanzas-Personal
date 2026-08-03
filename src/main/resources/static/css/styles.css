@@ -2194,12 +2194,23 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
 }
 
 /* Revisión de hojas detectadas al importar historial completo (varios períodos) */
+/* El modal en sí no scrollea — solo la lista de hojas, para no tener dos scrollbars
+   anidados por unos pocos píxeles de más. Todo lo demás (header, año común, "seleccionar
+   todas", botón de confirmar) mantiene su alto natural; la lista ocupa el espacio restante. */
+#modal-revision-hojas .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+    overflow: hidden;
+}
+
 .revision-hojas-list {
-    max-height: 360px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
 }
 
 .revision-hoja-row {
@@ -2228,6 +2239,85 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
     align-items: center;
 }
 
+.revision-seleccionar-todas {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+/* Checkbox circular a juego con el resto de los controles neumórficos de la app */
+.np-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 50%;
+    background: var(--np-surface);
+    box-shadow: inset 3px 3px 6px var(--np-shadow-dark), inset -3px -3px 6px var(--np-shadow-light);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: box-shadow .2s ease, background .2s ease;
+}
+
+.np-checkbox:checked {
+    background: var(--success);
+    box-shadow: 3px 3px 8px rgba(16,185,129,.35), -2px -2px 6px var(--np-shadow-light);
+}
+
+.np-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 3px;
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.revision-anio-comun-grupo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: var(--np-surface);
+    box-shadow: inset 3px 3px 6px var(--np-shadow-dark), inset -3px -3px 6px var(--np-shadow-light);
+    margin-bottom: 14px;
+}
+
+.revision-anio-comun-icon { color: var(--text-muted); font-size: 22px; flex-shrink: 0; }
+
+.revision-anio-comun-texto { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+.revision-anio-comun-texto p {
+    font-size: 13px;
+    color: var(--text);
+    margin: 0;
+}
+
+.revision-anio-comun-texto small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.revision-anio-comun-field { padding: 8px 14px; flex-shrink: 0; }
+.revision-anio-comun-field input {
+    width: 70px;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--text);
+    text-align: center;
+}
+
 .revision-mes-field { min-width: 130px; padding: 8px 12px; }
 
 .revision-anio-field input {
@@ -2245,6 +2335,27 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
     font-size: 13px;
 }
 .tx-import-error-row:last-child { border-bottom: none; }
+
+/* Estado de carga de botones que disparan una importación (puede tardar con archivos grandes) */
+.np-button.is-loading {
+    opacity: .75;
+    cursor: wait;
+    pointer-events: none;
+}
+
+.btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: btn-spinner-rotar .6s linear infinite;
+}
+
+@keyframes btn-spinner-rotar {
+    to { transform: rotate(360deg); }
+}
 
 /* Resolución de conflictos de importación (estilo git merge) */
 .modal-conflictos-content { max-width: 760px; max-height: 85vh; overflow-y: auto; }
@@ -2279,6 +2390,9 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
 
 .conflictos-footer { justify-content: space-between; align-items: center; }
 .conflictos-progreso { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+
+.conflictos-bulk-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.conflict-bulk-btn.active { background: var(--text); color: var(--card-bg); }
 
 /* Asistente de mapeo de columnas */
 .mapeo-intro { color: var(--text-muted); font-size: 13px; margin: 4px 0 16px; }

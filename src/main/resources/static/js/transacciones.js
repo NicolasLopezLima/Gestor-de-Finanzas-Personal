@@ -67,6 +67,14 @@ async function initTransacciones() {
     document.getElementById('btn-confirmar-import').addEventListener('click', () => {
         if (conflictosEnModoHistorico) onConfirmarImportacionHistorico(); else onConfirmarImportacion();
     });
+    document.querySelectorAll('.conflict-bulk-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const conflictos = conflictosEnModoHistorico ? importPreviewHistorico.conflictos : importPreview.conflictos;
+            const resoluciones = conflictosEnModoHistorico ? resolucionesConflictoHistorico : resolucionesConflicto;
+            conflictos.forEach((_, i) => resoluciones.set(i, btn.dataset.accion));
+            if (conflictosEnModoHistorico) renderConflictosHistorico(); else renderConflictos();
+        });
+    });
     document.getElementById('modal-conflictos-import').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-conflictos-import')) cerrarModalConflictos();
     });
@@ -82,6 +90,19 @@ async function initTransacciones() {
         if (e.target === document.getElementById('modal-revision-hojas')) cerrarModalRevisionHojas();
     });
     document.getElementById('btn-confirmar-revision-hojas').addEventListener('click', onConfirmarRevisionHojas);
+    document.getElementById('revision-incluir-todas').addEventListener('change', (e) => {
+        document.querySelectorAll('.revision-incluir').forEach(cb => { cb.checked = e.target.checked; });
+    });
+    // Rellena en vivo solo las filas que no fueron editadas a mano (ni traían año detectado) —
+    // se guía por el flag "editado" y no por si el campo está vacío, así corrige sin problema
+    // mientras el usuario todavía está tipeando el año dígito por dígito (ej. "2025").
+    document.getElementById('revision-anio-comun').addEventListener('input', (e) => {
+        const anio = e.target.value;
+        if (!anio) return;
+        document.querySelectorAll('.revision-anio-input').forEach(input => {
+            if (!input.dataset.editado) input.value = anio;
+        });
+    });
 
     // Toggle tipo (solo los botones del modal de transacción — el de categorías se maneja aparte)
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(btn => {
@@ -541,10 +562,58 @@ async function cerrarPeriodo() {
     }
 }
 
-function descargarPlantilla() {
-    const anio = document.getElementById('periodo-anio').value;
-    const mes = document.getElementById('periodo-mes').value;
-    window.location.href = `/api/periodos/${anio}/${mes}/transacciones/plantilla`;
+// A diferencia del resto de los endpoints, esto devuelve un archivo binario en vez de JSON —
+// por eso no usa api.request/requestMultipart y maneja la respuesta a mano (fetch + blob),
+// en vez de un simple window.location.href, para poder mostrar un toast si el usuario todavía
+// no tiene ninguna transacción cargada (el backend devuelve un error en ese caso).
+async function descargarPlantilla() {
+    const btn = document.getElementById('btn-descargar-plantilla');
+    setBotonCargando(btn, true, 'Generando…');
+    try {
+        const res = await api.exportarHistorico();
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = '/login';
+            return;
+        }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'No se pudo generar el archivo.' }));
+            showToast(err.error, 'error');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'transacciones-historial.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        showToast('No se pudo generar el archivo.', 'error');
+    } finally {
+        setBotonCargando(btn, false);
+    }
+}
+
+// Deshabilita el botón y le muestra un spinner mientras dura una operación async — sin esto,
+// una importación de varias hojas puede tardar unos segundos y el usuario, al no ver nada,
+// tiende a apretar el botón varias veces (disparando la importación más de una vez).
+function setBotonCargando(boton, cargando, textoCargando = 'Importando…') {
+    if (!boton) return;
+    if (cargando) {
+        if (boton.dataset.textoOriginal === undefined) boton.dataset.textoOriginal = boton.innerHTML;
+        boton.disabled = true;
+        boton.classList.add('is-loading');
+        boton.innerHTML = `<span class="btn-spinner"></span> ${textoCargando}`;
+    } else {
+        boton.disabled = false;
+        boton.classList.remove('is-loading');
+        if (boton.dataset.textoOriginal !== undefined) {
+            boton.innerHTML = boton.dataset.textoOriginal;
+            delete boton.dataset.textoOriginal;
+        }
+    }
 }
 
 async function onImportarExcel(e) {
@@ -559,6 +628,9 @@ async function onImportarExcel(e) {
     const formData = new FormData();
     formData.append('archivo', file);
 
+    const btnImportar = document.getElementById('btn-importar-excel');
+    setBotonCargando(btnImportar, true, 'Analizando archivo…');
+
     // Primero se detectan las hojas del archivo — si tiene más de una con pinta de
     // transacciones, se ofrece el flujo de revisión multi-período en vez de importar
     // directo al período que se está viendo (mismo File, FormData se puede reusar/
@@ -569,6 +641,7 @@ async function onImportarExcel(e) {
     } catch (err) {
         archivoPendienteImportacion = null;
         showToast(err.message, 'error');
+        setBotonCargando(btnImportar, false);
         return;
     }
 
@@ -588,10 +661,13 @@ async function onImportarExcel(e) {
             } else {
                 showToast(err.message, 'error');
             }
+        } finally {
+            setBotonCargando(btnImportar, false);
         }
         return;
     }
 
+    setBotonCargando(btnImportar, false);
     deteccionHistoricoActual = deteccion;
     if (deteccion.requiereMapeo) {
         modoMapeoHistorico = true;
@@ -731,6 +807,8 @@ async function onConfirmarImportacion() {
         entrante: c.entrante,
         accion: resolucionesConflicto.get(i),
     }));
+    const btnConfirmar = document.getElementById('btn-confirmar-import');
+    setBotonCargando(btnConfirmar, true, 'Importando…');
     try {
         const resultado = await api.confirmarImportacion(importPreview.anio, importPreview.mes, {
             nuevas: importPreview.nuevas,
@@ -742,6 +820,8 @@ async function onConfirmarImportacion() {
         showToast(`Se importaron ${resultado.importadas} transacciones`);
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        setBotonCargando(btnConfirmar, false);
     }
 }
 
@@ -806,6 +886,8 @@ async function onConfirmarImportacionHistorico() {
         entrante: c.entrante,
         accion: resolucionesConflictoHistorico.get(i),
     }));
+    const btnConfirmar = document.getElementById('btn-confirmar-import');
+    setBotonCargando(btnConfirmar, true, 'Importando…');
     try {
         const resultado = await api.confirmarConflictosHistorico({
             nuevas: importPreviewHistorico.nuevas,
@@ -816,6 +898,8 @@ async function onConfirmarImportacionHistorico() {
         showToast(`Se importaron ${resultado.importadas} transacciones`);
     } catch (err) {
         showToast(err.message, 'error');
+    } finally {
+        setBotonCargando(btnConfirmar, false);
     }
 }
 
@@ -887,6 +971,8 @@ async function onSubmitMapeoWizard(e) {
     formData.append('columnaDescripcionGasto', columnaDescripcionGasto);
     formData.append('columnaMontoGasto', columnaMontoGasto);
 
+    const btnMapeo = e.target.querySelector('button[type="submit"]');
+    setBotonCargando(btnMapeo, true, 'Importando…');
     try {
         const resultado = await api.importarTransaccionesConMapeo(anio, mes, formData);
         cerrarModalMapeo();
@@ -898,6 +984,8 @@ async function onSubmitMapeoWizard(e) {
         } else {
             showToast(err.message, 'error');
         }
+    } finally {
+        setBotonCargando(btnMapeo, false);
     }
 }
 
@@ -909,6 +997,7 @@ function abrirModalRevisionHojas() {
     // hoja con columnas que no adivinamos sigue siendo elegible, en vez de quedar invisible.
     const hojas = deteccionHistoricoActual.hojas;
     renderFilasRevisionHojas(hojas);
+    document.getElementById('revision-incluir-todas').checked = hojas.every(h => h.incluir);
     document.getElementById('revision-anio-comun-grupo').classList.toggle('hidden', !deteccionHistoricoActual.requiereAnioComun);
     document.getElementById('revision-anio-comun').value = '';
     document.getElementById('modal-revision-hojas').classList.remove('hidden');
@@ -918,17 +1007,24 @@ function renderFilasRevisionHojas(hojas) {
     const cont = document.getElementById('revision-hojas-list');
     cont.innerHTML = hojas.map((h, i) => `
         <div class="revision-hoja-row">
-            <label><input type="checkbox" class="revision-incluir" id="revision-incluir-${i}" ${h.incluir ? 'checked' : ''}> ${h.nombreHoja}</label>
+            <label><input type="checkbox" class="revision-incluir np-checkbox" id="revision-incluir-${i}" ${h.incluir ? 'checked' : ''}> ${h.nombreHoja}</label>
             <div class="revision-hoja-periodo">
                 <div class="np-flat tx-field revision-mes-field">
                     <div id="revision-mes-${i}" class="custom-select"></div>
                 </div>
                 <div class="np-flat tx-field revision-anio-field">
-                    <input type="number" id="revision-anio-${i}" min="2000" max="2100" placeholder="Año" value="${h.anioInferido ?? ''}">
+                    <input type="number" id="revision-anio-${i}" class="revision-anio-input" min="2000" max="2100" placeholder="Año" value="${h.anioInferido ?? ''}" ${h.anioInferido ? 'data-editado="true"' : ''}>
                 </div>
             </div>
         </div>`).join('');
     hojas.forEach((h, i) => fillMesCustomSelect(`revision-mes-${i}`, h.mesInferido || 1));
+    // Marca la fila como "editada" solo ante tipeo real del usuario (setear .value por código,
+    // como hace el autocompletado del año común, no dispara 'input') — así el año común puede
+    // seguir actualizando una fila mientras el usuario todavía la está completando de a un
+    // dígito por vez, pero deja de tocarla en cuanto la persona la edita a mano.
+    cont.querySelectorAll('.revision-anio-input').forEach(input => {
+        input.addEventListener('input', () => { input.dataset.editado = 'true'; });
+    });
 }
 
 function cerrarModalRevisionHojas() {
@@ -963,6 +1059,8 @@ async function onConfirmarRevisionHojas() {
     formData.append('archivo', archivoPendienteImportacion);
     formData.append('seleccion', JSON.stringify({ hojas: seleccionHojas, mapeoOpcional: mapeoHistoricoResuelto }));
 
+    const btnConfirmar = document.getElementById('btn-confirmar-revision-hojas');
+    setBotonCargando(btnConfirmar, true, 'Importando…');
     try {
         const resultado = await api.confirmarHistorico(formData);
         cerrarModalRevisionHojas();
@@ -979,5 +1077,7 @@ async function onConfirmarRevisionHojas() {
         } else {
             showToast(err.message, 'error');
         }
+    } finally {
+        setBotonCargando(btnConfirmar, false);
     }
 }

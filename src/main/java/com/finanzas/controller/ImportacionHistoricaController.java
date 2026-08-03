@@ -10,6 +10,7 @@ import com.finanzas.exception.ImportValidationException;
 import com.finanzas.service.PeriodoService;
 import com.finanzas.service.UsuarioService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,12 +21,13 @@ import java.io.InputStream;
 import java.util.List;
 
 /**
- * Importación de historial completo de Transacciones: un archivo con varias hojas, cada una
- * mapeada a su propio período (mes/año), en vez del import de un solo período que ya maneja
- * {@link PeriodoController}. Controller propio porque no cuelga de un {anio}/{mes} fijo.
+ * Operaciones de Transacciones que abarcan varios períodos a la vez (no cuelgan de un
+ * {anio}/{mes} fijo, por eso viven en un controller propio en vez de {@link PeriodoController}):
+ * importación de un archivo con varias hojas (una por mes) y exportación de todo el historial
+ * cargado a un único Excel, también una hoja por mes.
  */
 @RestController
-@RequestMapping("/api/transacciones/importar-historico")
+@RequestMapping("/api/transacciones")
 public class ImportacionHistoricaController {
 
     private static final List<String> EXTENSIONES_VALIDAS = List.of(".xlsx", ".xls", ".ods", ".csv");
@@ -40,7 +42,17 @@ public class ImportacionHistoricaController {
         this.objectMapper = objectMapper;
     }
 
-    @PostMapping(value = "/detectar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @GetMapping("/exportar-historico")
+    public ResponseEntity<byte[]> exportarHistorico() {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        byte[] archivo = periodoService.generarExportacionHistorica(uid);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"transacciones-historial.xlsx\"")
+                .body(archivo);
+    }
+
+    @PostMapping(value = "/importar-historico/detectar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DeteccionHistoricoDTO> detectar(@RequestParam("archivo") MultipartFile archivo) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
         String nombre = validarArchivo(archivo);
@@ -51,7 +63,7 @@ public class ImportacionHistoricaController {
         }
     }
 
-    @PostMapping(value = "/confirmar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/importar-historico/confirmar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ImportacionResponseDTO> confirmar(
             @RequestParam("archivo") MultipartFile archivo,
             @RequestParam("seleccion") String seleccionJson) {
@@ -70,7 +82,7 @@ public class ImportacionHistoricaController {
         }
     }
 
-    @PostMapping(value = "/confirmar-conflictos", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/importar-historico/confirmar-conflictos", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ImportResultDTO> confirmarConflictos(@Valid @RequestBody ImportConfirmacionRequestDTO request) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
         return ResponseEntity.ok(periodoService.confirmarImportacionHistorico(request, uid));

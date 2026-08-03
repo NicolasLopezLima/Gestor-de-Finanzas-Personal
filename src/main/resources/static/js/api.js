@@ -55,6 +55,7 @@ const api = {
     detectarHistorico: (formData) => requestMultipart('POST', '/transacciones/importar-historico/detectar', formData),
     confirmarHistorico: (formData) => requestMultipart('POST', '/transacciones/importar-historico/confirmar', formData),
     confirmarConflictosHistorico: (payload) => request('POST', '/transacciones/importar-historico/confirmar-conflictos', payload),
+    exportarHistorico: () => fetch(BASE + '/transacciones/exportar-historico'),
 
     // Presupuesto
     listarPresupuestos: () => request('GET', '/presupuestos'),
