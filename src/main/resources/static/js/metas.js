@@ -1,4 +1,5 @@
 let metas = [];
+let ritmoMetas = null;
 
 const META_ICONOS = ['savings', 'home', 'directions_car', 'school', 'flight', 'beach_access', 'celebration', 'favorite'];
 
@@ -17,7 +18,7 @@ async function initMetas() {
 
 async function cargarMetas() {
     try {
-        metas = await api.listarMetas();
+        [metas, ritmoMetas] = await Promise.all([api.listarMetas(), api.obtenerRitmoMetas()]);
         renderMetas();
     } catch (err) {
         showToast(err.message, 'error');
@@ -40,13 +41,12 @@ function renderMetas() {
     const estadoColor = { ACTIVA: '#334155', COMPLETADA: '#10b981', VENCIDA: '#e11d48' };
     const estadoHeaderClass = { ACTIVA: 'meta-head-activa', COMPLETADA: 'meta-head-completada', VENCIDA: 'meta-head-vencida' };
 
-    const activas = metas.filter(m => m.estado === 'ACTIVA');
-    const totalAcumulado = activas.reduce((s, m) => s + Number(m.montoAcumulado), 0);
-    const totalObjetivo = activas.reduce((s, m) => s + Number(m.montoObjetivo), 0);
+    const totalAcumulado = metas.reduce((s, m) => s + Number(m.montoAcumulado), 0);
+    const totalObjetivo = metas.reduce((s, m) => s + Number(m.montoObjetivo), 0);
     const pctGlobal = totalObjetivo > 0 ? Math.round((totalAcumulado / totalObjetivo) * 100) : 0;
     const ring = buildDonut([{ value: pctGlobal, color: 'var(--primary)' }, { value: 100 - pctGlobal, color: 'transparent' }], { size: 64, stroke: 6 });
 
-    const hero = activas.length > 0 ? `
+    const hero = `
         <div class="metas-hero">
             <div>
                 <div class="dash-period-label">Patrimonio reservado</div>
@@ -58,30 +58,45 @@ function renderMetas() {
                     <div class="dash-donut-center"><span style="font-size:13px;font-weight:700">${pctGlobal}%</span></div>
                 </div>
                 <div>
-                    <div style="font-weight:600">${activas.length} meta${activas.length === 1 ? '' : 's'} en curso</div>
-                    <div style="font-size:12px;color:var(--text-muted)">Seguimiento activo</div>
+                    <div style="font-weight:600">${metas.length} meta${metas.length === 1 ? '' : 's'}</div>
+                    <div style="font-size:12px;color:var(--text-muted)">Progreso acumulado</div>
                 </div>
             </div>
-        </div>` : '';
+        </div>`;
 
-    // TODO: texto de ejemplo — reemplazar por cálculo real (ritmo de ahorro vs. plan, proyección de cumplimiento)
-    const insights = activas.length > 0 ? `
+    const tieneDatosRitmo = ritmoMetas && ritmoMetas.metasActivasConDatos > 0;
+    const pctATiempo = tieneDatosRitmo ? Math.round((ritmoMetas.metasATiempo / ritmoMetas.metasActivasConDatos) * 100) : 0;
+    const donutProyeccion = tieneDatosRitmo
+        ? buildDonut([{ value: pctATiempo, color: 'var(--success)' }, { value: 100 - pctATiempo, color: 'var(--danger)' }], { size: 60, stroke: 8 })
+        : '';
+
+    const insights = `
         <div class="metas-insights">
             <div class="metas-insight-card metas-insight-primary">
-                <div class="metas-insight-icon">💡</div>
-                <div>
+                <div class="metas-insight-header">
+                    <div class="metas-insight-icon"><span class="material-symbols-outlined">savings</span></div>
                     <div class="metas-insight-title">Optimización de Ahorro</div>
-                    <div class="metas-insight-text">Próximamente: vamos a comparar tu ritmo de ahorro contra el plan de cada meta y sugerirte reasignaciones.</div>
                 </div>
+                ${renderDisponibleVsNecesario(ritmoMetas)}
+                <div class="metas-insight-text">${textoOptimizacionAhorro(ritmoMetas)}</div>
+                ${renderBarrasRitmo(ritmoMetas)}
             </div>
             <div class="metas-insight-card metas-insight-secondary">
-                <div class="metas-insight-icon">📈</div>
-                <div>
+                <div class="metas-insight-header">
+                    <div class="metas-insight-icon"><span class="material-symbols-outlined">trending_up</span></div>
                     <div class="metas-insight-title">Proyección Mensual</div>
-                    <div class="metas-insight-text">Próximamente: al ritmo actual, te vamos a mostrar qué % de tus metas se completarían a tiempo.</div>
                 </div>
+                <div class="metas-insight-text">${textoProyeccionMensual(ritmoMetas)}</div>
+                ${tieneDatosRitmo ? `
+                <div class="metas-insight-donut-row">
+                    <div class="dash-donut-wrapper" style="width:60px;height:60px;margin:0">
+                        ${donutProyeccion}
+                        <div class="dash-donut-center"><span style="font-size:12px;font-weight:700">${pctATiempo}%</span></div>
+                    </div>
+                    <div class="metas-insight-donut-caption">${ritmoMetas.metasATiempo} de ${ritmoMetas.metasActivasConDatos} a tiempo</div>
+                </div>` : ''}
             </div>
-        </div>` : '';
+        </div>`;
 
     grid.innerHTML = hero + '<div class="cards-grid" style="grid-column:1/-1">' + metas.map(m => {
         const activa = m.estado === 'ACTIVA';
@@ -115,7 +130,7 @@ function renderMetas() {
                     </div>
                     ${progressBar(m.porcentajeProgreso, estadoColor[m.estado] || 'var(--primary)')}
                 </div>
-                <div class="meta-fecha" style="margin-top:10px">📅 Vence: ${fmtDate(m.fechaFin)}</div>
+                <div class="meta-fecha" style="margin-top:10px"><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">calendar_today</span> Vence: ${fmtDate(m.fechaFin)}</div>
                 <div class="meta-montos" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
                     ${activa ? `<button class="np-button-dark np-pill-sm" onclick="abrirModalAbono(${m.id})">Abonar</button>` : '<span></span>'}
                     <button class="np-button np-pill-sm" onclick="abrirModalDetalle(${m.id})">Detalles</button>
@@ -124,11 +139,70 @@ function renderMetas() {
         </div>
     `; }).join('') + `
         <button type="button" class="meta-add-card" onclick="abrirModalMeta()">
-            <div class="meta-add-icon">🎯</div>
+            <div class="meta-add-icon"><span class="material-symbols-outlined">add</span></div>
             <h3>Nueva Meta</h3>
             <p>Planificá tu próximo gran objetivo financiero.</p>
         </button>
     ` + '</div>' + insights;
+}
+
+// Arma el mensaje de "Proyección Mensual" a partir de MetasRitmoDTO — cubre explícitamente los
+// casos sin datos suficientes, en vez de mostrar un cálculo con ceros sin sentido.
+function textoProyeccionMensual(r) {
+    if (!r || r.metasActivasTotal === 0) return 'Creá una meta activa para ver esta proyección.';
+    if (r.metasActivasConDatos === 0) return 'Todavía no hay aportes registrados en tus metas activas para poder proyectar.';
+    const n = r.metasActivasConDatos;
+    return `A tu ritmo actual, ${r.metasATiempo} de ${n} meta${n === 1 ? '' : 's'} activa${n === 1 ? '' : 's'} con aportes se completaría${r.metasATiempo === 1 ? '' : 'n'} a tiempo.`;
+}
+
+// Compara el disponible mensual promedio (ingresos - gastos reales de los últimos meses, ANTES
+// de contar lo que ya se destina a abonar metas) contra la suma de lo que TODAS las metas
+// activas necesitan por mes para llegar a tiempo — la pregunta que las barras por-meta no
+// responden solas: ¿alcanza la plata real para todo junto, o cada meta "parece" alcanzable
+// mirada sola pero juntas no entran en el sueldo?
+function renderDisponibleVsNecesario(r) {
+    if (!r || r.metasActivasConDatos === 0) return '';
+    if (r.disponibleMensualPromedio == null) {
+        return `<div class="metas-insight-text" style="margin-top:0">Todavía no hay suficiente historial de Ingresos y Gastos para saber si tu ritmo de ingresos alcanza para todas tus metas juntas.</div>`;
+    }
+    const pct = Math.round((r.disponibleMensualPromedio / r.ritmoNecesarioTotal) * 100);
+    const anchoBarra = Math.min(100, Math.max(0, pct));
+    const color = r.alcanzaParaTodas ? 'var(--success)' : 'var(--danger)';
+    const mensaje = r.alcanzaParaTodas
+        ? `Tu disponible mensual promedio (${fmt(r.disponibleMensualPromedio)}) alcanza para cubrir lo que necesitás ahorrar en total (${fmt(r.ritmoNecesarioTotal)}/mes) para llegar a tiempo a todas tus metas activas.`
+        : `Necesitarías ahorrar ${fmt(r.ritmoNecesarioTotal)}/mes en total para llegar a tiempo a todas tus metas activas, pero tu disponible mensual promedio es ${fmt(r.disponibleMensualPromedio)}. No te va a alcanzar para todas al mismo tiempo — vas a tener que priorizar o estirar algún plazo.`;
+    return `
+    <div class="metas-ritmo-row metas-ritmo-total">
+        <div class="metas-ritmo-row-label"><span>Disponible vs. necesario total</span><span>${pct}%</span></div>
+        ${progressBar(anchoBarra, color)}
+        <div class="metas-insight-text" style="margin-top:0">${mensaje}</div>
+    </div>`;
+}
+
+// Solo señala qué metas están por debajo del ritmo necesario — no sugiere montos a mover entre
+// metas, ya que la app no modela la plata de cada una como algo separado/intercambiable.
+function textoOptimizacionAhorro(r) {
+    if (!r || r.metasActivasTotal === 0) return 'Creá una meta activa para ver este análisis.';
+    if (r.metasActivasConDatos === 0) return 'Todavía no hay aportes registrados en tus metas activas para calcular tu ritmo de ahorro.';
+    const atrasadas = r.detalle.filter(d => d.porcentajeRitmo < 100);
+    if (atrasadas.length === 0) return '¡Vas bien! Ninguna de tus metas activas está por debajo del ritmo necesario para llegar a tiempo.';
+    return `Están por debajo del ritmo necesario para llegar a tiempo: ${atrasadas.map(d => d.nombre).join(', ')}.`;
+}
+
+// Una barra por meta activa con datos, comparando el ritmo real contra el necesario para llegar
+// a tiempo (100% = justo a tiempo). El ancho se limita a 100 para que la barra no se rompa,
+// pero el número mostrado es el porcentaje real (puede superar el 100%).
+function renderBarrasRitmo(r) {
+    if (!r || !r.detalle || r.detalle.length === 0) return '';
+    return `<div class="metas-ritmo-list">${r.detalle.map(d => {
+        const anchoBarra = Math.min(100, Math.max(0, d.porcentajeRitmo));
+        const color = d.porcentajeRitmo >= 100 ? 'var(--success)' : 'var(--danger)';
+        return `
+        <div class="metas-ritmo-row">
+            <div class="metas-ritmo-row-label"><span>${d.nombre}</span><span>${d.porcentajeRitmo}%</span></div>
+            ${progressBar(anchoBarra, color)}
+        </div>`;
+    }).join('')}</div>`;
 }
 
 function toggleMetaMenu(e, id) {

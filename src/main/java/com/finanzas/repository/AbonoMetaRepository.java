@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface AbonoMetaRepository extends JpaRepository<AbonoMeta, Long> {
     List<AbonoMeta> findByMetaIdOrderByFechaDesc(Long metaId);
+    void deleteByMetaId(Long metaId);
 }

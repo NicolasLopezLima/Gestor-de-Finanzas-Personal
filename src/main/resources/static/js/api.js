@@ -69,6 +69,7 @@ const api = {
     eliminarMeta: (id) => request('DELETE', `/metas/${id}`),
     abonarMeta: (id, monto) => request('POST', `/metas/${id}/abonar`, { monto }),
     listarAbonosMeta: (id) => request('GET', `/metas/${id}/abonos`),
+    obtenerRitmoMetas: () => request('GET', '/metas/ritmo'),
 
     // Inversiones
     listarInversiones: () => request('GET', '/inversiones'),

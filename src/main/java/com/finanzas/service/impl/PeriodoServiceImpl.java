@@ -37,6 +37,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -878,5 +879,33 @@ public class PeriodoServiceImpl implements PeriodoService {
             throw new IllegalStateException("No autorizado para resolver este conflicto.");
         }
         return t;
+    }
+
+    @Override
+    public BigDecimal obtenerDisponibleMensualPromedio(Long usuarioId) {
+        YearMonth actual = YearMonth.now();
+        List<PeriodoMensual> completos = periodoRepo.findAllByUsuarioIdOrderByAnioAscMesAsc(usuarioId).stream()
+                .filter(p -> YearMonth.of(p.getAnio(), p.getMes()).isBefore(actual))
+                .collect(Collectors.toList());
+        if (completos.isEmpty()) return null;
+
+        List<PeriodoMensual> ultimos = completos.size() > 6
+                ? completos.subList(completos.size() - 6, completos.size())
+                : completos;
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (PeriodoMensual periodo : ultimos) {
+            List<Transaccion> transacciones = transaccionRepo.findByPeriodoId(periodo.getId());
+            BigDecimal ingresos = transacciones.stream()
+                    .filter(t -> t.getTipo() == TipoTransaccion.INGRESO)
+                    .map(Transaccion::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal gastos = transacciones.stream()
+                    .filter(t -> t.getTipo() == TipoTransaccion.GASTO)
+                    .map(Transaccion::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            total = total.add(ingresos.subtract(gastos));
+        }
+        return total.divide(BigDecimal.valueOf(ultimos.size()), 2, RoundingMode.HALF_UP);
     }
 }

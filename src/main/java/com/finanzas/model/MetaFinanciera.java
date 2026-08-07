@@ -27,6 +27,12 @@ public class MetaFinanciera {
     @Column(nullable = false)
     private LocalDate fechaFin;
 
+    // Nullable a propósito: se agregó después de que ya existían metas guardadas, y
+    // ddl-auto=update no puede agregar una columna NOT NULL a una tabla con filas. Para metas
+    // viejas sin este dato, el cálculo de ritmo de ahorro usa como respaldo la fecha del abono
+    // más antiguo (ver MetaFinancieraServiceImpl.obtenerResumenRitmo).
+    private LocalDate fechaCreacion;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstadoMeta estado = EstadoMeta.ACTIVA;
@@ -51,6 +57,8 @@ public class MetaFinanciera {
     public void setMontoAcumulado(BigDecimal montoAcumulado) { this.montoAcumulado = montoAcumulado; }
     public LocalDate getFechaFin() { return fechaFin; }
     public void setFechaFin(LocalDate fechaFin) { this.fechaFin = fechaFin; }
+    public LocalDate getFechaCreacion() { return fechaCreacion; }
+    public void setFechaCreacion(LocalDate fechaCreacion) { this.fechaCreacion = fechaCreacion; }
     public EstadoMeta getEstado() { return estado; }
     public void setEstado(EstadoMeta estado) { this.estado = estado; }
     public String getIcono() { return icono; }

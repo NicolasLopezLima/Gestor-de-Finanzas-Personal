@@ -2,6 +2,7 @@ package com.finanzas.controller;
 
 import com.finanzas.dto.AbonoMetaDTO;
 import com.finanzas.dto.MetaFinancieraDTO;
+import com.finanzas.dto.MetasRitmoDTO;
 import com.finanzas.service.MetaFinancieraService;
 import com.finanzas.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -34,6 +35,12 @@ public class MetaFinancieraController {
     public ResponseEntity<List<MetaFinancieraDTO>> listarActivas() {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
         return ResponseEntity.ok(metaService.listarActivas(uid));
+    }
+
+    @GetMapping("/ritmo")
+    public ResponseEntity<MetasRitmoDTO> ritmo() {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        return ResponseEntity.ok(metaService.obtenerResumenRitmo(uid));
     }
 
     @PostMapping
