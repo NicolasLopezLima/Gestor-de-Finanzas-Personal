@@ -8,7 +8,9 @@ import com.finanzas.model.AbonoMeta;
 import com.finanzas.model.EstadoMeta;
 import com.finanzas.model.MetaFinanciera;
 import com.finanzas.model.Usuario;
+import com.finanzas.model.AsignacionPresupuesto;
 import com.finanzas.repository.AbonoMetaRepository;
+import com.finanzas.repository.AsignacionPresupuestoRepository;
 import com.finanzas.repository.MetaFinancieraRepository;
 import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.MetaFinancieraService;
@@ -32,14 +34,17 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
     private final MetaFinancieraRepository metaRepo;
     private final UsuarioRepository usuarioRepo;
     private final AbonoMetaRepository abonoRepo;
+    private final AsignacionPresupuestoRepository asignacionPresupuestoRepo;
     private final PeriodoService periodoService;
 
     public MetaFinancieraServiceImpl(MetaFinancieraRepository metaRepo, UsuarioRepository usuarioRepo,
-                                      AbonoMetaRepository abonoRepo, PeriodoService periodoService) {
+                                      AbonoMetaRepository abonoRepo, AsignacionPresupuestoRepository asignacionPresupuestoRepo,
+                                      PeriodoService periodoService) {
         this.periodoService = periodoService;
         this.metaRepo = metaRepo;
         this.usuarioRepo = usuarioRepo;
         this.abonoRepo = abonoRepo;
+        this.asignacionPresupuestoRepo = asignacionPresupuestoRepo;
     }
 
     @Override
@@ -78,6 +83,13 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
         // Los abonos ya registrados referencian la meta por FK sin cascade — hay que borrarlos
         // primero, si no MySQL rechaza el delete de la meta con una violación de integridad.
         abonoRepo.deleteByMetaId(id);
+        // Si alguna partida del Presupuesto quedó vinculada a esta meta (ej. la categoría fija
+        // "Colchón" apuntando a un fondo de emergencia puntual), desvincularla en vez de que la
+        // FK bloquee el borrado — la partida del presupuesto sigue existiendo, solo pierde el
+        // link a esta meta en particular.
+        List<AsignacionPresupuesto> asignacionesVinculadas = asignacionPresupuestoRepo.findByMetaId(id);
+        asignacionesVinculadas.forEach(a -> a.setMeta(null));
+        asignacionPresupuestoRepo.saveAll(asignacionesVinculadas);
         metaRepo.delete(meta);
     }
 

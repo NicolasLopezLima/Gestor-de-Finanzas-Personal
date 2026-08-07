@@ -4,6 +4,7 @@ import com.finanzas.dto.PresupuestoDTO;
 import com.finanzas.model.AsignacionPresupuesto;
 import com.finanzas.model.MetaFinanciera;
 import com.finanzas.model.Presupuesto;
+import com.finanzas.model.TipoRegla;
 import com.finanzas.model.Usuario;
 import com.finanzas.repository.MetaFinancieraRepository;
 import com.finanzas.repository.PresupuestoRepository;
@@ -42,6 +43,8 @@ public class PresupuestoServiceImpl implements PresupuestoService {
         presupuesto.setAnio(dto.getAnio());
         presupuesto.setMes(dto.getMes());
         presupuesto.setSueldo(dto.getSueldo());
+        presupuesto.setTipoRegla(dto.getTipoRegla() != null ? TipoRegla.valueOf(dto.getTipoRegla()) : TipoRegla.CINCUENTA_TREINTA_VEINTE);
+        presupuesto.setPorcentajeAhorroPersonalizado(dto.getPorcentajeAhorroPersonalizado());
         presupuesto.setUsuario(usuario);
         presupuesto.getAsignaciones().clear();
 
@@ -78,6 +81,8 @@ public class PresupuestoServiceImpl implements PresupuestoService {
         dto.setAnio(p.getAnio());
         dto.setMes(p.getMes());
         dto.setSueldo(p.getSueldo());
+        dto.setTipoRegla(p.getTipoRegla() != null ? p.getTipoRegla().name() : TipoRegla.CINCUENTA_TREINTA_VEINTE.name());
+        dto.setPorcentajeAhorroPersonalizado(p.getPorcentajeAhorroPersonalizado());
 
         List<PresupuestoDTO.AsignacionDTO> asigs = new ArrayList<>();
         for (AsignacionPresupuesto a : p.getAsignaciones()) {

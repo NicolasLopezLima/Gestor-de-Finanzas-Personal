@@ -412,6 +412,14 @@ tr:hover td { background: var(--primary-light) !important; }
 .summary-item .s-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; font-family: var(--font-mono); }
 .summary-item .s-value { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; font-family: var(--font-mono); }
 
+/* El "Disponible" se destaca como la tarjeta oscura, igual que el balance del Dashboard */
+.summary-item-dark {
+    background: var(--primary);
+    box-shadow: 6px 6px 16px rgba(0,0,0,.25), -4px -4px 16px rgba(255,255,255,.04);
+}
+.summary-item-dark .s-label { color: rgba(255,255,255,.6); }
+body[data-dark-mode="true"] .summary-item-dark { background: #1E293B; border: 1px solid #29344a; }
+
 /* Period selector */
 .periodo-selector {
     display: flex;
@@ -612,6 +620,18 @@ tr:hover td { background: var(--primary-light) !important; }
 
 .meta-head-completada { background: var(--success); }
 .meta-head-vencida { background: var(--danger); }
+
+/* Meta completada: se destaca la tarjeta entera en verde, no solo la franja superior */
+.meta-card-completa { background: var(--success); }
+.meta-card-completa .meta-card-body { background: transparent; }
+.meta-card-completa .meta-nombre,
+.meta-card-completa .meta-montos,
+.meta-card-completa .progress-bar-label { color: #fff; }
+.meta-card-completa .meta-fecha { color: rgba(255,255,255,.8); }
+.meta-card-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+.meta-card-completa .meta-card-desc { color: rgba(255,255,255,.85); }
+.meta-card-completa .progress-bar-track { background: rgba(255,255,255,.25); }
+.meta-card-completa .np-button:not(.np-button-dark) { background: #fff; color: var(--success); box-shadow: none; }
 
 .meta-card-head-row {
     display: flex;
@@ -1194,8 +1214,10 @@ body[data-dark-mode="true"] .np-form .form-group select {
     margin-bottom: 8px;
 }
 
-.asig-row {
-    grid-template-columns: 1fr 110px 1fr auto auto;
+/* Sin esto, un <select> con una opción de texto largo (ej. el nombre de una meta) fuerza su
+   columna del grid a ese ancho mínimo y termina empujando todo el modal a scrollear horizontal. */
+.asig-row > * {
+    min-width: 0;
 }
 
 .asig-row input, .asig-row select {
@@ -1203,7 +1225,46 @@ body[data-dark-mode="true"] .np-form .form-group select {
     border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 13px;
+    max-width: 100%;
 }
+
+.asig-row select.asig-meta {
+    text-overflow: ellipsis;
+}
+
+/* Selector de regla de presupuesto (50/30/20, 70/20/10, 80/20, personalizada) */
+.regla-presupuesto-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+@media (max-width: 480px) {
+    .regla-presupuesto-list { grid-template-columns: 1fr; }
+}
+
+.regla-card {
+    text-align: left;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: var(--np-surface);
+    box-shadow: 4px 4px 8px var(--np-shadow-dark), -4px -4px 8px var(--np-shadow-light);
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+.regla-card.active {
+    background: var(--text);
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,.3), inset -2px -2px 5px rgba(255,255,255,.05);
+}
+
+.regla-card-nombre { font-size: 14px; font-weight: 700; color: var(--text); }
+.regla-card.active .regla-card-nombre { color: var(--card-bg); }
+.regla-card-autor { font-size: 11px; font-weight: 600; color: var(--success); margin-top: 2px; }
+.regla-card.active .regla-card-autor { color: var(--success); }
+.regla-card-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+.regla-card.active .regla-card-desc { color: rgba(255,255,255,.7); }
 
 /* Empty state */
 .empty-state {
@@ -1469,36 +1530,66 @@ body[data-dark-mode="true"] .np-form .form-group select {
 .leyenda-monto .l-valor { font-size: 14px; font-weight: 700; font-family: var(--font-mono); color: var(--np-text-strong); }
 .leyenda-monto .l-pct { font-size: 11px; color: var(--np-text-muted); }
 
-/* Pro Tip / Guía institucional */
-.np-protip {
-    margin-top: 24px;
+/* Análisis según la regla de presupuesto elegida — grande y visual a propósito, para que no
+   pase desapercibido como una sugerencia de texto que nadie lee: números grandes + barra con
+   marcador de objetivo, arriba de la dona en vez de al final de la página. */
+.np-analisis-regla {
     padding: 24px;
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
+    margin-bottom: 24px;
 }
 
-@media (max-width: 640px) {
-    .np-protip { flex-direction: column; }
-}
-
-.np-protip-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgba(16,185,129,.12);
-    color: #006c49;
+.np-analisis-header {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.np-analisis-icon {
+    font-size: 26px;
+    color: var(--success);
     flex-shrink: 0;
 }
 
-.np-protip-body { flex: 1; min-width: 0; }
-.np-protip-title { font-size: 15px; font-weight: 700; color: var(--np-text-strong); margin-bottom: 8px; }
-.np-protip-text { font-size: 13px; line-height: 1.6; color: var(--np-text-muted); margin-bottom: 14px; }
+.np-analisis-header .np-card-title { margin-bottom: 4px; }
 
-.np-protip-tags { display: flex; flex-wrap: wrap; gap: 10px; }
+.np-analisis-numeros {
+    display: flex;
+    gap: 36px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.np-analisis-valor { display: flex; flex-direction: column; }
+.np-analisis-valor-num { font-size: 34px; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.np-analisis-valor-label { font-size: 12px; color: var(--np-text-muted); margin-top: 6px; }
+.np-analisis-valor-objetivo .np-analisis-valor-num { color: var(--np-text-muted); font-size: 24px; }
+
+.np-analisis-bar-track {
+    position: relative;
+    height: 18px;
+    background: var(--border);
+    border-radius: 99px;
+    margin-bottom: 16px;
+}
+
+.np-analisis-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width .4s ease, background .3s ease;
+}
+
+.np-analisis-bar-marcador {
+    position: absolute;
+    top: -4px;
+    width: 3px;
+    height: 26px;
+    background: var(--np-text-strong);
+    border-radius: 2px;
+    transform: translateX(-1px);
+}
+
+.np-protip-text { font-size: 13px; line-height: 1.6; color: var(--np-text-muted); margin: 0; }
 
 .np-protip-tag {
     display: inline-block;
@@ -1518,6 +1609,7 @@ body[data-dark-mode="true"] .np-form .form-group select {
     max-width: 560px;
     max-height: 85vh;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .modal-header {
@@ -1701,6 +1793,12 @@ body[data-dark-mode="true"] .np-form .form-group select {
     gap: 10px;
     margin-top: 16px;
 }
+
+.confirm-dialog-overlay { z-index: 300; }
+.confirm-dialog-content { max-width: 380px; }
+.confirm-dialog-title { font-size: 17px; margin-bottom: 8px; }
+.confirm-dialog-message { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+.confirm-dialog-content .modal-actions button { flex: 1; }
 
 /* Cartera bars */
 .cartera-tipo-row {
@@ -1974,19 +2072,6 @@ body[data-dark-mode="true"] .np-form .form-group select {
 
 .dash-grid { display: block; }
 
-/* Period badge card */
-.dash-period-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--np-surface);
-    border: none;
-    border-radius: var(--radius);
-    padding: 18px 22px;
-    box-shadow: 6px 6px 12px var(--np-shadow-dark), -6px -6px 12px var(--np-shadow-light);
-    margin-bottom: 20px;
-}
-
 .dash-period-label {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -1995,8 +2080,6 @@ body[data-dark-mode="true"] .np-form .form-group select {
     color: var(--text-muted);
     text-transform: uppercase;
 }
-
-.dash-period-value { font-size: 18px; font-weight: 700; margin-top: 2px; }
 
 .dash-badge {
     display: inline-flex;
@@ -2018,25 +2101,80 @@ body[data-dark-mode="true"] .np-form .form-group select {
     background: currentColor;
 }
 
-/* Hero row: donut + resumen mensual */
-.dash-hero-row {
-    display: grid;
-    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.3fr);
-    gap: 16px;
-    margin-bottom: 16px;
+.dash-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-@media (max-width: 900px) {
-    .dash-hero-row { grid-template-columns: 1fr; }
+/* Tarjeta de balance del Dashboard — la pieza central: monto grande, anillo de % de ahorro,
+   comparación contra el mes anterior (si hay datos) e Ingresos/Gastos/Invertido como pastillas
+   adentro. Fondo oscuro con una sombra suave (no plana del todo, para no perder el lenguaje
+   neumórfico del resto de la app), mismo tono que las tarjetas oscuras de Metas/Presupuesto. */
+.dash-balance-hero {
+    background: var(--primary);
+    border-radius: var(--radius);
+    padding: 26px 28px;
+    margin-bottom: 20px;
+    box-shadow: 6px 6px 16px rgba(0,0,0,.25), -4px -4px 16px rgba(255,255,255,.04);
 }
 
-.dash-donut-card, .dash-resumen-card {
-    background: var(--np-surface);
-    border: none;
-    box-shadow: 6px 6px 12px var(--np-shadow-dark), -6px -6px 12px var(--np-shadow-light);
+.dash-balance-hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
 }
 
-.dash-donut-card { display: flex; flex-direction: column; align-items: center; }
+.dash-balance-hero-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.6);
+}
+
+.dash-balance-hero-value { font-size: 34px; font-weight: 700; color: #fff; margin-top: 4px; font-family: var(--font-mono); }
+
+.dash-hero-comparacion {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.dash-hero-comparacion .material-symbols-outlined { font-size: 15px; }
+.dash-hero-comparacion.up { background: rgba(16,185,129,.18); color: #6ee7b7; }
+.dash-hero-comparacion.down { background: rgba(225,29,72,.18); color: #fca5a5; }
+
+.dash-balance-hero-stats {
+    display: flex;
+    gap: 14px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+}
+
+.dash-balance-hero-stat {
+    flex: 1;
+    min-width: 140px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,.06);
+    border-radius: 10px;
+}
+
+.dash-balance-hero-stat .material-symbols-outlined { color: rgba(255,255,255,.6); font-size: 20px; }
+.dash-balance-hero-stat-label { font-size: 11px; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .04em; }
+.dash-balance-hero-stat-value { font-size: 15px; font-weight: 700; color: #fff; font-family: var(--font-mono); margin-top: 1px; }
 
 .dash-donut-wrapper {
     position: relative;
@@ -2068,48 +2206,6 @@ body[data-dark-mode="true"] .np-form .form-group select {
 
 .dash-donut-center-value { font-size: 20px; font-weight: 700; margin-top: 2px; font-family: var(--font-mono); }
 
-.dash-legend { width: 100%; }
-
-.dash-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-}
-
-.dash-legend-item:last-child { border-bottom: none; }
-.dash-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.dash-legend-name { flex: 1; color: var(--text-muted); }
-.dash-legend-value { font-weight: 700; font-family: var(--font-mono); }
-
-/* Resumen mensual: icon rows + balance highlight */
-.dash-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 0;
-}
-
-.dash-row-info { flex: 1; }
-.dash-row-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); }
-.dash-row-sub { font-size: 14px; font-weight: 500; margin-top: 1px; }
-.dash-row-value { font-size: 18px; font-weight: 700; font-family: var(--font-mono); }
-.dash-row-value.income { color: var(--success); }
-.dash-row-value.expense { color: var(--danger); }
-
-.dash-balance-highlight {
-    margin-top: 8px;
-    padding: 18px 20px;
-    background: var(--primary);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 6px 6px 14px rgba(0,0,0,.25), -4px -4px 14px rgba(255,255,255,.04);
-}
-
 /* Mini cards de metas dentro del Dashboard (no tocar .meta-card, se usa en Metas) */
 .dash-meta-card {
     background: var(--np-surface);
@@ -2118,12 +2214,7 @@ body[data-dark-mode="true"] .np-form .form-group select {
     box-shadow: 6px 6px 12px var(--np-shadow-dark), -6px -6px 12px var(--np-shadow-light);
 }
 
-.dash-balance-label { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; color: rgba(255,255,255,.6); text-transform: uppercase; }
-.dash-balance-value { font-size: 26px; font-weight: 700; color: #fff; margin-top: 4px; font-family: var(--font-mono); }
-.dash-balance-icon { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.14); color: #fff; display: flex; align-items: center; justify-content: center; }
-.dash-balance-icon svg { width: 18px; height: 18px; }
-
-body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; border: 1px solid #29344a; }
+body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1px solid #29344a; }
 
 /* Dashboard welcome */
 .dashboard-welcome {
@@ -2483,6 +2574,58 @@ body[data-dark-mode="true"] .dash-balance-highlight { background: #1E293B; borde
 
 .tx-row:hover { border-color: var(--primary); }
 .tx-row:last-child { margin-bottom: 0; }
+
+.tx-row.tx-row-selectable { cursor: pointer; }
+.tx-row.tx-row-selected { border-color: var(--primary); background: var(--primary-light); }
+
+.tx-checkbox-circle {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+.tx-checkbox-circle .material-symbols-outlined { font-size: 22px; }
+.tx-row-selected .tx-checkbox-circle { color: var(--primary); }
+
+.tx-select-all-btn:hover { color: var(--primary); }
+.tx-select-all-btn.checked { color: var(--primary); }
+
+.tx-tabs-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.tx-tabs-row .np-tabs { flex: 1; margin-bottom: 0; }
+
+/* Estilo "danger" desde el vamos (no solo al activarse): así se entiende de un vistazo que
+   este botón lleva a poder borrar transacciones, no es un filtro/orden más de la lista. */
+.tx-select-toggle {
+    background: transparent;
+    color: var(--danger);
+    border: 1.5px solid var(--danger);
+}
+.tx-select-toggle:hover { background: rgba(225,29,72,.08); }
+.tx-select-toggle.active { background: var(--danger); color: #fff; }
+
+.tx-seleccion-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--primary-light);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.tx-seleccion-left { display: flex; align-items: center; gap: 10px; }
+.tx-seleccion-actions { display: flex; gap: 8px; }
+.tx-seleccion-bar.hidden { display: none; }
 
 .tx-row-info { flex: 1; min-width: 0; }
 .tx-row-desc { font-weight: 600; font-size: 14px; }

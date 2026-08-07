@@ -116,10 +116,27 @@
                 <small class="tx-import-hint">La exportación incluye todos tus movimientos ya cargados, un mes por hoja. Si la volvés a importar sin editarla, se van a duplicar. Formatos aceptados para importar: .xlsx, .xls, .ods, .csv.</small>
             </div>
 
-            <div class="np-tabs">
-                <button class="tab np-tab active" data-filter="todos">Todos</button>
-                <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
-                <button class="tab np-tab" data-filter="GASTO">Gastos</button>
+            <div class="tx-tabs-row">
+                <div class="np-tabs">
+                    <button class="tab np-tab active" data-filter="todos">Todos</button>
+                    <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
+                    <button class="tab np-tab" data-filter="GASTO">Gastos</button>
+                </div>
+                <button type="button" id="btn-modo-seleccion" class="np-button np-pill np-pill-sm tx-select-toggle">
+                    <span class="material-symbols-outlined">delete_sweep</span> Seleccionar
+                </button>
+            </div>
+            <div id="tx-seleccion-bar" class="tx-seleccion-bar hidden">
+                <div class="tx-seleccion-left">
+                    <button type="button" id="btn-seleccionar-todas" class="tx-checkbox-circle tx-select-all-btn" title="Seleccionar todas">
+                        <span class="material-symbols-outlined">remove_circle_outline</span>
+                    </button>
+                    <span id="tx-seleccion-count">0 seleccionadas</span>
+                </div>
+                <div class="tx-seleccion-actions">
+                    <button type="button" id="btn-cancelar-seleccion" class="btn btn-secondary np-pill-sm">Cancelar</button>
+                    <button type="button" id="btn-eliminar-seleccionadas" class="btn btn-danger np-pill-sm" disabled>Eliminar seleccionadas</button>
+                </div>
             </div>
             <div id="tabla-transacciones" class="tx-list"></div>
 
@@ -396,22 +413,8 @@
                     <div class="presupuesto-guide">
                         <div class="presupuesto-guide-icon"><span class="material-symbols-outlined">lightbulb</span></div>
                         <div class="presupuesto-guide-body">
-                            <h3>Guía institucional: la regla 50/30/20</h3>
-                            <p>Un estándar simple para la estabilidad financiera. Dividí tus ingresos mensuales en tres categorías principales:</p>
-                            <div class="presupuesto-guide-grid">
-                                <div class="presupuesto-guide-item">
-                                    <strong>50% Necesidades</strong>
-                                    <span>Vivienda, servicios, comida y salud.</span>
-                                </div>
-                                <div class="presupuesto-guide-item">
-                                    <strong>30% Deseos</strong>
-                                    <span>Ocio, hobbies y suscripciones.</span>
-                                </div>
-                                <div class="presupuesto-guide-item">
-                                    <strong>20% Ahorro</strong>
-                                    <span>Inversiones y fondo de emergencia.</span>
-                                </div>
-                            </div>
+                            <h3>Elegí la regla que más te acomode</h3>
+                            <p>Al configurar tu presupuesto vas a poder elegir entre reglas conocidas como 50/30/20, 70/20/10 u 80/20, o definir tu propio % objetivo de ahorro e inversión — el análisis se va a calcular según la que elijas.</p>
                         </div>
                     </div>
                 </div>
@@ -426,6 +429,32 @@
                             <span class="material-symbols-outlined">edit</span>
                             Editar Presupuesto
                         </button>
+                    </div>
+
+                    <!-- Análisis según la regla de presupuesto elegida -->
+                    <div class="np-flat np-analisis-regla">
+                        <div class="np-analisis-header">
+                            <span class="material-symbols-outlined np-analisis-icon">insights</span>
+                            <div>
+                                <h3 class="np-card-title" id="protip-titulo">Regla 50/30/20</h3>
+                                <span id="protip-tag-eficiencia" class="np-protip-tag"></span>
+                            </div>
+                        </div>
+                        <div class="np-analisis-numeros">
+                            <div class="np-analisis-valor">
+                                <span class="np-analisis-valor-num" id="analisis-pct-real">0%</span>
+                                <span class="np-analisis-valor-label">Tu Ahorro + Inversión</span>
+                            </div>
+                            <div class="np-analisis-valor np-analisis-valor-objetivo">
+                                <span class="np-analisis-valor-num" id="analisis-pct-objetivo">20%</span>
+                                <span class="np-analisis-valor-label">Objetivo de tu regla</span>
+                            </div>
+                        </div>
+                        <div class="np-analisis-bar-track">
+                            <div class="np-analisis-bar-fill" id="analisis-bar-fill"></div>
+                            <div class="np-analisis-bar-marcador" id="analisis-bar-marcador"></div>
+                        </div>
+                        <p id="protip-texto" class="np-protip-text"></p>
                     </div>
 
                     <!-- Bento: dona + desglose -->
@@ -449,21 +478,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Pro Tip / Guía institucional -->
-                    <div class="np-flat np-protip">
-                        <div class="np-protip-icon">
-                            <span class="material-symbols-outlined">lightbulb</span>
-                        </div>
-                        <div class="np-protip-body">
-                            <h4 class="np-protip-title">Guía Institucional: La Regla 50/30/20</h4>
-                            <p id="protip-texto" class="np-protip-text"></p>
-                            <div class="np-protip-tags">
-                                <span id="protip-tag-eficiencia" class="np-protip-tag"></span>
-                                <span id="protip-tag-estrategia" class="np-protip-tag"></span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -480,6 +494,14 @@
                             <div class="sueldo-input-wrapper">
                                 <span class="sueldo-input-prefix">$</span>
                                 <input type="number" id="p-sueldo" min="0" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Regla de presupuesto</label>
+                            <div id="regla-presupuesto-list" class="regla-presupuesto-list"></div>
+                            <div id="regla-personalizada-grupo" class="form-group hidden" style="margin-top:10px">
+                                <label class="np-label-sm">% de tu sueldo para Ahorro e inversión</label>
+                                <input type="number" id="regla-personalizada-pct" min="1" max="100" step="1" placeholder="20">
                             </div>
                         </div>
                         <div id="asignaciones-container">
