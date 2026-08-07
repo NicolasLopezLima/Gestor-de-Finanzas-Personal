@@ -1,10 +1,23 @@
 let presupuestoActual = null;
 let metasDisponibles = [];
+let reglaSeleccionada = 'CINCUENTA_TREINTA_VEINTE';
 
 const TIPOS_FIJOS = [
     { tipo: 'GASTO',     label: 'Gasto',     mIcon: 'shopping_cart', descripcion: 'Gasto diario disponible', tag: 'Variable' },
     { tipo: 'COLCHON',   label: 'Colchón',   mIcon: 'savings',       descripcion: 'Fondo de emergencia',      tag: 'Meta' },
     { tipo: 'INVERSION', label: 'Inversión', mIcon: 'trending_up',   descripcion: 'Inversiones',              tag: 'Crecimiento' },
+];
+
+// Las tres reglas prearmadas coinciden en su versión más citada en el mismo objetivo de ahorro
+// (20%) — lo que cambia entre ellas es cómo describen el resto del sueldo, no el número que la
+// app efectivamente mide (Colchón + Inversión vs. sueldo). Solo 50/30/20 tiene un autor único
+// verificable (Elizabeth Warren, "All Your Worth", 2005); 70/20/10 y 80/20 son reglas de uso
+// popular sin autor documentado, así que no se les inventa uno.
+const REGLAS_PRESUPUESTO = [
+    { tipo: 'CINCUENTA_TREINTA_VEINTE', nombre: '50/30/20', autor: 'Elizabeth Warren', descripcion: '50% Necesidades, 30% Deseos, 20% Ahorro e inversión.', porcentajeAhorro: 20 },
+    { tipo: 'SETENTA_VEINTE_DIEZ', nombre: '70/20/10', autor: null, descripcion: '70% Gastos, 20% Ahorro e inversión, 10% Deuda o donación.', porcentajeAhorro: 20 },
+    { tipo: 'OCHENTA_VEINTE', nombre: '80/20', autor: null, descripcion: '80% Gastos, 20% Ahorro e inversión.', porcentajeAhorro: 20 },
+    { tipo: 'PERSONALIZADA', nombre: 'Personalizada', autor: null, descripcion: 'Elegí vos qué % de tu sueldo destinar a Ahorro e inversión.', porcentajeAhorro: null },
 ];
 
 const PIE_COLORS = ['#0F172A','#10B981','#475569','#0D9488','#B45309','#94A3B8','#1E3A5F','#64748B'];
@@ -52,8 +65,30 @@ function abrirModalPresupuesto() {
     if (presupuestoActual?.sueldo) {
         document.getElementById('p-sueldo').value = presupuestoActual.sueldo;
     }
+    reglaSeleccionada = presupuestoActual?.tipoRegla || 'CINCUENTA_TREINTA_VEINTE';
+    document.getElementById('regla-personalizada-pct').value = presupuestoActual?.porcentajeAhorroPersonalizado ?? '';
+    renderReglasPresupuesto();
     actualizarRestante();
     document.getElementById('modal-presupuesto').classList.remove('hidden');
+}
+
+function renderReglasPresupuesto() {
+    const cont = document.getElementById('regla-presupuesto-list');
+    cont.innerHTML = REGLAS_PRESUPUESTO.map(r => `
+        <button type="button" class="regla-card ${r.tipo === reglaSeleccionada ? 'active' : ''}" data-tipo="${r.tipo}">
+            <div class="regla-card-nombre">${r.nombre}</div>
+            ${r.autor ? `<div class="regla-card-autor">${r.autor}</div>` : ''}
+            <div class="regla-card-desc">${r.descripcion}</div>
+        </button>`).join('');
+
+    cont.querySelectorAll('.regla-card').forEach(btn => {
+        btn.addEventListener('click', () => {
+            reglaSeleccionada = btn.dataset.tipo;
+            renderReglasPresupuesto();
+            document.getElementById('regla-personalizada-grupo').classList.toggle('hidden', reglaSeleccionada !== 'PERSONALIZADA');
+        });
+    });
+    document.getElementById('regla-personalizada-grupo').classList.toggle('hidden', reglaSeleccionada !== 'PERSONALIZADA');
 }
 
 function cerrarModalPresupuesto() {
@@ -217,40 +252,54 @@ function renderPieChart() {
     renderProTip(asigs, sueldo);
 }
 
-// ── Pro Tip / Guía institucional 50/30/20 ─────────────────────────────────────
+// ── Pro Tip / análisis según la regla de presupuesto elegida ──────────────────
 
 function renderProTip(asigs, sueldo) {
+    const regla = REGLAS_PRESUPUESTO.find(r => r.tipo === presupuestoActual?.tipoRegla) || REGLAS_PRESUPUESTO[0];
+    const objetivo = regla.tipo === 'PERSONALIZADA'
+        ? Number(presupuestoActual?.porcentajeAhorroPersonalizado) || 20
+        : regla.porcentajeAhorro;
+
+    const nombreTitulo = regla.autor ? `Regla ${regla.nombre} · ${regla.autor}` : `Regla ${regla.nombre}`;
+    document.getElementById('protip-titulo').textContent = nombreTitulo;
+
     const ahorroInversion = asigs
         .filter(a => a.tipo === 'COLCHON' || a.tipo === 'INVERSION')
         .reduce((s, a) => s + Number(a.monto), 0);
 
     const pctAhorroInversion = sueldo > 0 ? Math.round((ahorroInversion / sueldo) * 100) : 0;
 
-    let eficiencia, estrategia, tagClass, mensaje;
-    if (pctAhorroInversion >= 20) {
+    // Los umbrales de eficiencia son relativos al objetivo elegido, no fijos: Alta si llega o
+    // supera el objetivo, Media si llega al menos a la mitad, Baja si menos.
+    let eficiencia, tagClass, barColor, mensaje;
+    if (pctAhorroInversion >= objetivo) {
         eficiencia = 'Eficiencia: Alta';
-        estrategia = 'Estrategia: Crecimiento';
         tagClass = 'tag-accent';
-        mensaje = `Tu distribución se inclina hacia el ahorro y la inversión, con un ${pctAhorroInversion}% combinado de tu sueldo. ¡Excelente progreso hacia la regla 50/30/20!`;
-    } else if (pctAhorroInversion >= 10) {
+        barColor = 'var(--success)';
+        mensaje = `Tu distribución se inclina hacia el ahorro y la inversión, con un ${pctAhorroInversion}% combinado de tu sueldo. ¡Excelente progreso hacia tu regla ${regla.nombre}!`;
+    } else if (pctAhorroInversion >= objetivo / 2) {
         eficiencia = 'Eficiencia: Media';
-        estrategia = 'Estrategia: Equilibrada';
         tagClass = '';
-        mensaje = `Destinás un ${pctAhorroInversion}% de tu sueldo a ahorro e inversión. Estás cerca del 20% que recomienda la regla 50/30/20 — un poco más y lo alcanzás.`;
+        barColor = 'var(--warning)';
+        mensaje = `Destinás un ${pctAhorroInversion}% de tu sueldo a ahorro e inversión. Estás cerca del ${objetivo}% que busca tu regla ${regla.nombre} — un poco más y lo alcanzás.`;
     } else {
         eficiencia = 'Eficiencia: Baja';
-        estrategia = 'Estrategia: A mejorar';
         tagClass = 'tag-warn';
-        mensaje = `Sólo un ${pctAhorroInversion}% de tu sueldo va a ahorro e inversión, por debajo del 20% que recomienda la regla 50/30/20. Considerá reforzar el Colchón o las Inversiones.`;
+        barColor = 'var(--danger)';
+        mensaje = `Sólo un ${pctAhorroInversion}% de tu sueldo va a ahorro e inversión, por debajo del ${objetivo}% que busca tu regla ${regla.nombre}. Considerá reforzar el Colchón o las Inversiones.`;
     }
+
+    document.getElementById('analisis-pct-real').textContent = `${pctAhorroInversion}%`;
+    document.getElementById('analisis-pct-real').style.color = barColor;
+    document.getElementById('analisis-pct-objetivo').textContent = `${objetivo}%`;
+    document.getElementById('analisis-bar-fill').style.width = `${Math.min(100, pctAhorroInversion)}%`;
+    document.getElementById('analisis-bar-fill').style.background = barColor;
+    document.getElementById('analisis-bar-marcador').style.left = `${Math.min(100, objetivo)}%`;
 
     document.getElementById('protip-texto').textContent = mensaje;
     const tagEficiencia = document.getElementById('protip-tag-eficiencia');
     tagEficiencia.textContent = eficiencia;
     tagEficiencia.className = 'np-protip-tag ' + tagClass;
-    const tagEstrategia = document.getElementById('protip-tag-estrategia');
-    tagEstrategia.textContent = estrategia;
-    tagEstrategia.className = 'np-protip-tag ' + tagClass;
 }
 
 function slicePath(cx, cy, r, ri, startAngle, endAngle) {
@@ -297,8 +346,20 @@ async function guardarPresupuesto(e) {
         });
     });
 
+    const porcentajeAhorroPersonalizado = reglaSeleccionada === 'PERSONALIZADA'
+        ? +document.getElementById('regla-personalizada-pct').value || null
+        : null;
+    if (reglaSeleccionada === 'PERSONALIZADA' && !porcentajeAhorroPersonalizado) {
+        showToast('Indicá un % objetivo para tu regla personalizada', 'error');
+        return;
+    }
+
     try {
-        presupuestoActual = await api.guardarPresupuesto({ anio, mes, sueldo, asignaciones });
+        presupuestoActual = await api.guardarPresupuesto({
+            anio, mes, sueldo, asignaciones,
+            tipoRegla: reglaSeleccionada,
+            porcentajeAhorroPersonalizado,
+        });
         cerrarModalPresupuesto();
         document.getElementById('presupuesto-empty').style.display = 'none';
         document.getElementById('presupuesto-chart-container').style.display = '';

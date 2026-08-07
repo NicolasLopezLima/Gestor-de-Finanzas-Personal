@@ -29,7 +29,7 @@ function renderMetas() {
     const grid = document.getElementById('metas-grid');
     if (!metas.length) {
         grid.innerHTML = emptyState({
-            icon: '🎯',
+            icon: '<span class="material-symbols-outlined">track_changes</span>',
             title: 'No tenés metas creadas',
             text: 'Definí un objetivo de ahorro con monto y fecha límite, y hacé seguimiento de tu progreso.',
             actionLabel: '+ Nueva meta',
@@ -100,9 +100,10 @@ function renderMetas() {
 
     grid.innerHTML = hero + '<div class="cards-grid" style="grid-column:1/-1">' + metas.map(m => {
         const activa = m.estado === 'ACTIVA';
+        const completada = m.estado === 'COMPLETADA';
         const icono = m.icono || 'savings';
         return `
-        <div class="meta-card">
+        <div class="meta-card ${completada ? 'meta-card-completa' : ''}">
             <div class="meta-card-head ${estadoHeaderClass[m.estado] || 'meta-head-activa'}">
                 <div class="meta-card-head-top">
                     <span class="badge badge-${m.estado.toLowerCase()}">${m.estado}</span>
@@ -122,13 +123,13 @@ function renderMetas() {
                 </div>
             </div>
             <div class="meta-card-body">
-                ${m.descripcion ? `<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">${m.descripcion}</p>` : ''}
+                ${m.descripcion ? `<p class="meta-card-desc">${m.descripcion}</p>` : ''}
                 <div class="progress-bar-container">
                     <div class="progress-bar-label">
                         <span>${fmt(m.montoAcumulado)}</span>
                         <span>de ${fmt(m.montoObjetivo)}</span>
                     </div>
-                    ${progressBar(m.porcentajeProgreso, estadoColor[m.estado] || 'var(--primary)')}
+                    ${progressBar(m.porcentajeProgreso, completada ? '#fff' : (estadoColor[m.estado] || 'var(--primary)'))}
                 </div>
                 <div class="meta-fecha" style="margin-top:10px"><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">calendar_today</span> Vence: ${fmtDate(m.fechaFin)}</div>
                 <div class="meta-montos" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
@@ -418,7 +419,7 @@ async function guardarMeta(e) {
 }
 
 async function eliminarMeta(id) {
-    if (!confirm('¿Eliminar esta meta?')) return;
+    if (!(await confirmDialog({ title: '¿Eliminar esta meta?', message: 'Se van a borrar también todos los abonos registrados. Esta acción no se puede deshacer.' }))) return;
     try {
         await api.eliminarMeta(id);
         await cargarMetas();

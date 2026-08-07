@@ -17,6 +17,42 @@ function showToast(msg, type = 'success') {
     setTimeout(() => t.remove(), 3000);
 }
 
+// Reemplaza al confirm() nativo del navegador: además de no encajar visualmente con el resto
+// de la app, un confirm() nativo bloquea el hilo por completo (incluida cualquier automatización
+// de UI que dependa de CDP), algo que un modal propio no hace. Se agrega al z-index 300 (por
+// encima de .modal, que usa 200) para poder mostrarse arriba de otro modal ya abierto, como al
+// borrar una categoría desde adentro del modal de Categorías.
+function confirmDialog({ title = '¿Estás seguro?', message = '', confirmText = 'Eliminar', cancelText = 'Cancelar', danger = true } = {}) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal confirm-dialog-overlay';
+        overlay.innerHTML = `
+            <div class="modal-content confirm-dialog-content">
+                <h3 class="confirm-dialog-title">${title}</h3>
+                <p class="confirm-dialog-message">${message}</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary confirm-dialog-cancel">${cancelText}</button>
+                    <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'} confirm-dialog-confirm">${confirmText}</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const cerrar = (resultado) => {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+            resolve(resultado);
+        };
+        const onKeydown = (e) => {
+            if (e.key === 'Escape') cerrar(false);
+        };
+        overlay.querySelector('.confirm-dialog-cancel').addEventListener('click', () => cerrar(false));
+        overlay.querySelector('.confirm-dialog-confirm').addEventListener('click', () => cerrar(true));
+        overlay.addEventListener('click', e => { if (e.target === overlay) cerrar(false); });
+        document.addEventListener('keydown', onKeydown);
+        overlay.querySelector('.confirm-dialog-confirm').focus();
+    });
+}
+
 function progressBar(pct, color) {
     return `
     <div class="progress-bar-track">

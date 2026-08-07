@@ -2,6 +2,9 @@ let periodoActual = null;
 let presupuestoMes = null;
 let filtroActivo = 'todos';
 let filtroCategoria = '';
+let modoSeleccion = false;
+let idsSeleccionados = new Set();
+let idsVisibles = []; // ids de las transacciones renderizadas en la última renderTabla(), para "seleccionar todas"
 let importPreview = null;              // { anio, mes, nuevas, conflictos }
 let resolucionesConflicto = new Map(); // indice del conflicto -> 'MANTENER_EXISTENTE' | 'USAR_EXCEL' | 'MANTENER_AMBAS'
 let archivoPendienteImportacion = null; // File seleccionado, por si hace falta reenviarlo con un mapeo
@@ -131,6 +134,11 @@ async function initTransacciones() {
         filtroCategoria = document.getElementById('filtro-categoria').value;
         renderTabla();
     });
+
+    document.getElementById('btn-modo-seleccion').addEventListener('click', toggleModoSeleccion);
+    document.getElementById('btn-cancelar-seleccion').addEventListener('click', cancelarModoSeleccion);
+    document.getElementById('btn-eliminar-seleccionadas').addEventListener('click', eliminarSeleccionadas);
+    document.getElementById('btn-seleccionar-todas').addEventListener('click', toggleSeleccionarTodas);
 
     document.getElementById('btn-cerrar-categorias').addEventListener('click', cerrarModalCategorias);
     document.getElementById('modal-categorias').addEventListener('click', e => {
@@ -273,17 +281,17 @@ async function onGuardarCategoria(e) {
 }
 
 async function onEliminarCategoria(id) {
-    let mensaje = '¿Eliminar esta categoría?';
+    let mensaje = '';
     try {
         const uso = await api.contarUsoCategoria(id);
         if (uso > 0) {
-            mensaje = `Esta categoría tiene ${uso} transacción(es) cargada(s). Van a mantener este nombre, pero la categoría ya no va a poder elegirse para transacciones nuevas. ¿Eliminarla igual?`;
+            mensaje = `Esta categoría tiene ${uso} transacción(es) cargada(s). Van a mantener este nombre, pero la categoría ya no va a poder elegirse para transacciones nuevas.`;
         }
     } catch (err) {
         showToast(err.message, 'error');
         return;
     }
-    if (!confirm(mensaje)) return;
+    if (!(await confirmDialog({ title: '¿Eliminar esta categoría?', message: mensaje }))) return;
     try {
         await api.eliminarCategoria(id);
         await cargarCategorias();
@@ -334,7 +342,11 @@ function abrirModalTransaccion(id) {
 }
 
 async function cancelarRecurrencia(transaccionId) {
-    if (!confirm('¿Dejar de repetir esta transacción? Los meses posteriores a este que ya se hayan generado se van a eliminar; los anteriores (incluido este) quedan intactos.')) return;
+    if (!(await confirmDialog({
+        title: '¿Dejar de repetir esta transacción?',
+        message: 'Los meses posteriores a este que ya se hayan generado se van a eliminar; los anteriores (incluido este) quedan intactos.',
+        confirmText: 'Dejar de repetir',
+    }))) return;
     try {
         await api.cancelarRecurrencia(transaccionId);
         cerrarModalTransaccion();
@@ -361,6 +373,7 @@ function actualizarMesLabel() {
 
 async function cargarPeriodo() {
     actualizarMesLabel();
+    cancelarModoSeleccion();
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
 
@@ -392,6 +405,10 @@ function renderPeriodo() {
     btnImportar.disabled = cerrado;
     btnImportar.title = cerrado ? 'Período cerrado' : 'Importar transacciones desde Excel';
 
+    const btnSeleccion = document.getElementById('btn-modo-seleccion');
+    btnSeleccion.classList.toggle('hidden', cerrado);
+    if (cerrado) cancelarModoSeleccion();
+
     // La asignación de tipo GASTO es siempre la base del disponible
     const gastoPresupuestado = presupuestoMes?.asignaciones
         ?.filter(a => a.tipo === 'GASTO')
@@ -414,13 +431,13 @@ function renderPeriodo() {
             <div class="s-label">Gastos</div>
             <div class="s-value text-danger">${fmt(periodoActual.totalGastos)}</div>
         </div>
-        <div class="summary-item">
-            <div class="s-label">Disponible${tienePresupuesto ? ` <small style="color:var(--text-muted);font-weight:400">base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
-            <div class="s-value" style="color:${disponible >= 0 ? 'var(--success)' : 'var(--danger)'}">
+        <div class="summary-item summary-item-dark">
+            <div class="s-label">Disponible${tienePresupuesto ? ` <small style="color:rgba(255,255,255,.5);font-weight:400">base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
+            <div class="s-value" style="color:${disponible >= 0 ? '#fff' : 'var(--danger)'}">
                 ${fmt(disponible)}
             </div>
         </div>
-        ${cerrado ? '<div class="summary-item"><div class="s-label" style="color:var(--warning)">⚠ Periodo CERRADO</div></div>' : ''}
+        ${cerrado ? '<div class="summary-item"><div class="s-label" style="color:var(--warning)"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px">lock</span> Periodo CERRADO</div></div>' : ''}
     `;
     renderTabla();
 }
@@ -450,11 +467,12 @@ function renderTabla() {
     let lista = periodoActual.transacciones || [];
     if (filtroActivo !== 'todos') lista = lista.filter(t => t.tipo === filtroActivo);
     if (filtroCategoria) lista = lista.filter(t => t.categoria === filtroCategoria);
+    idsVisibles = lista.map(t => t.id);
 
     const hayFiltro = filtroActivo !== 'todos' || filtroCategoria;
     if (lista.length === 0) {
         cont.innerHTML = emptyState({
-            icon: '🧾',
+            icon: '<span class="material-symbols-outlined">receipt_long</span>',
             title: hayFiltro ? 'Nada para mostrar con este filtro' : 'Todavía no hay movimientos',
             text: hayFiltro
                 ? 'Probá con otro filtro o agregá una transacción nueva.'
@@ -467,8 +485,15 @@ function renderTabla() {
     cont.innerHTML = grupos.map(([fecha, items]) => `
         <div class="tx-group">
             <div class="tx-group-label">${labelFecha(fecha)}</div>
-            ${items.map(t => `
-                <div class="tx-row">
+            ${items.map(t => {
+                const seleccionada = idsSeleccionados.has(t.id);
+                return `
+                <div class="tx-row ${modoSeleccion ? 'tx-row-selectable' : ''} ${seleccionada ? 'tx-row-selected' : ''}"
+                     ${modoSeleccion ? `onclick="toggleSeleccionTx(${t.id})"` : ''}>
+                    ${modoSeleccion ? `
+                        <span class="tx-checkbox-circle">
+                            <span class="material-symbols-outlined">${seleccionada ? 'check_circle' : 'radio_button_unchecked'}</span>
+                        </span>` : ''}
                     <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">
                         <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || (t.tipo === 'INGRESO' ? 'arrow_upward' : 'arrow_downward')}</span>
                     </span>
@@ -478,12 +503,89 @@ function renderTabla() {
                     </div>
                     <div class="tx-row-right">
                         <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
-                        ${periodoActual.cerrado ? '' : `
+                        ${periodoActual.cerrado || modoSeleccion ? '' : `
                             <button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>
-                            <button class="btn-icon" onclick="eliminarTransaccion(${t.id})">🗑</button>`}
+                            <button class="btn-icon" onclick="eliminarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">delete</span></button>`}
                     </div>
-                </div>`).join('')}
+                </div>`;
+            }).join('')}
         </div>`).join('');
+}
+
+// ── Selección múltiple para borrado en lote ─────────────────────────────────
+
+function toggleModoSeleccion() {
+    modoSeleccion = !modoSeleccion;
+    idsSeleccionados.clear();
+    document.getElementById('btn-modo-seleccion').classList.toggle('active', modoSeleccion);
+    document.getElementById('tx-seleccion-bar').classList.toggle('hidden', !modoSeleccion);
+    renderTabla();
+    actualizarBarraSeleccion();
+}
+
+function cancelarModoSeleccion() {
+    if (!modoSeleccion) return;
+    modoSeleccion = false;
+    idsSeleccionados.clear();
+    document.getElementById('btn-modo-seleccion')?.classList.remove('active');
+    document.getElementById('tx-seleccion-bar')?.classList.add('hidden');
+    renderTabla();
+}
+
+function toggleSeleccionTx(id) {
+    if (idsSeleccionados.has(id)) idsSeleccionados.delete(id); else idsSeleccionados.add(id);
+    renderTabla();
+    actualizarBarraSeleccion();
+}
+
+// Seleccionar/deseleccionar de un saque todas las transacciones actualmente visibles (respeta
+// el filtro de Ingresos/Gastos/categoría aplicado) — si ya están todas tildadas, el mismo botón
+// las destilda a todas en vez de forzar siempre a "seleccionar".
+function toggleSeleccionarTodas() {
+    const todasSeleccionadas = idsVisibles.length > 0 && idsVisibles.every(id => idsSeleccionados.has(id));
+    if (todasSeleccionadas) {
+        idsVisibles.forEach(id => idsSeleccionados.delete(id));
+    } else {
+        idsVisibles.forEach(id => idsSeleccionados.add(id));
+    }
+    renderTabla();
+    actualizarBarraSeleccion();
+}
+
+function actualizarBarraSeleccion() {
+    const n = idsSeleccionados.size;
+    document.getElementById('tx-seleccion-count').textContent = n === 1 ? '1 seleccionada' : `${n} seleccionadas`;
+    document.getElementById('btn-eliminar-seleccionadas').disabled = n === 0;
+
+    const todasSeleccionadas = idsVisibles.length > 0 && idsVisibles.every(id => idsSeleccionados.has(id));
+    const btnTodas = document.getElementById('btn-seleccionar-todas');
+    btnTodas.querySelector('.material-symbols-outlined').textContent = todasSeleccionadas ? 'check_circle' : 'remove_circle_outline';
+    btnTodas.classList.toggle('checked', todasSeleccionadas);
+    btnTodas.title = todasSeleccionadas ? 'Deseleccionar todas' : 'Seleccionar todas';
+}
+
+async function eliminarSeleccionadas() {
+    const ids = [...idsSeleccionados];
+    if (ids.length === 0) return;
+    if (!(await confirmDialog({
+        title: ids.length === 1 ? '¿Eliminar la transacción seleccionada?' : `¿Eliminar las ${ids.length} transacciones seleccionadas?`,
+    }))) return;
+
+    const resultados = await Promise.allSettled(ids.map(id => api.eliminarTransaccion(id)));
+    const exitosas = resultados.filter(r => r.status === 'fulfilled').length;
+    const fallidas = resultados.length - exitosas;
+
+    const anio = +document.getElementById('periodo-anio').value;
+    const mes = +document.getElementById('periodo-mes').value;
+    periodoActual = await api.getPeriodo(anio, mes);
+    cancelarModoSeleccion();
+    renderPeriodo();
+
+    if (fallidas > 0) {
+        showToast(`Se eliminaron ${exitosas} de ${resultados.length} transacciones. ${fallidas} no se pudieron borrar.`, 'error');
+    } else {
+        showToast(exitosas === 1 ? 'Transacción eliminada' : `${exitosas} transacciones eliminadas`);
+    }
 }
 
 async function onAgregarTransaccion(e) {
@@ -536,7 +638,7 @@ async function onAgregarTransaccion(e) {
 }
 
 async function eliminarTransaccion(id) {
-    if (!confirm('¿Eliminar esta transacción?')) return;
+    if (!(await confirmDialog({ title: '¿Eliminar esta transacción?' }))) return;
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
     try {
@@ -552,7 +654,12 @@ async function eliminarTransaccion(id) {
 async function cerrarPeriodo() {
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
-    if (!confirm(`¿Cerrar el periodo ${MESES[mes-1]} ${anio}? Esta acción no se puede deshacer.`)) return;
+    if (!(await confirmDialog({
+        title: `¿Cerrar el periodo ${MESES[mes-1]} ${anio}?`,
+        message: 'Esta acción no se puede deshacer.',
+        confirmText: 'Cerrar periodo',
+        danger: false,
+    }))) return;
     try {
         periodoActual = await api.cerrarPeriodo(anio, mes);
         renderPeriodo();

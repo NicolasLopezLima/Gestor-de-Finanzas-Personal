@@ -173,7 +173,7 @@ function renderPosiciones() {
 
     if (!inversiones.length) {
         cont.innerHTML = emptyState({
-            icon: '📊',
+            icon: '<span class="material-symbols-outlined">pie_chart</span>',
             title: 'Todavía no cargaste inversiones',
             text: 'Registrá tu primera posición para hacer seguimiento de tu cartera.',
             actionLabel: '+ Nueva inversión',
@@ -183,7 +183,7 @@ function renderPosiciones() {
     }
     if (!lista.length) {
         cont.innerHTML = emptyState({
-            icon: '📊',
+            icon: '<span class="material-symbols-outlined">pie_chart</span>',
             title: 'Nada para mostrar con este filtro',
             text: 'Probá con otro tipo de activo.',
         });
@@ -507,7 +507,7 @@ async function guardarInversion(e) {
 }
 
 async function eliminarInversion(id) {
-    if (!confirm('¿Eliminar esta inversión?')) return;
+    if (!(await confirmDialog({ title: '¿Eliminar esta inversión?' }))) return;
     try {
         await api.eliminarInversion(id);
         await cargarInversiones();

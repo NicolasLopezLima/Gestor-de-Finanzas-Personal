@@ -21,6 +21,9 @@ public class PresupuestoDTO {
 
     private List<AsignacionDTO> asignaciones;
 
+    private String tipoRegla;
+    private BigDecimal porcentajeAhorroPersonalizado;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Integer getAnio() { return anio; }
@@ -31,6 +34,10 @@ public class PresupuestoDTO {
     public void setSueldo(BigDecimal sueldo) { this.sueldo = sueldo; }
     public List<AsignacionDTO> getAsignaciones() { return asignaciones; }
     public void setAsignaciones(List<AsignacionDTO> asignaciones) { this.asignaciones = asignaciones; }
+    public String getTipoRegla() { return tipoRegla; }
+    public void setTipoRegla(String tipoRegla) { this.tipoRegla = tipoRegla; }
+    public BigDecimal getPorcentajeAhorroPersonalizado() { return porcentajeAhorroPersonalizado; }
+    public void setPorcentajeAhorroPersonalizado(BigDecimal porcentajeAhorroPersonalizado) { this.porcentajeAhorroPersonalizado = porcentajeAhorroPersonalizado; }
 
     public static class AsignacionDTO {
         private Long id;
