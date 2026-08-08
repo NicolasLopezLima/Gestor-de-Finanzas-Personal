@@ -412,6 +412,15 @@ tr:hover td { background: var(--primary-light) !important; }
 .summary-item .s-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; font-family: var(--font-mono); }
 .summary-item .s-value { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; font-family: var(--font-mono); }
 
+.summary-item-clickable {
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.summary-item-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 16px var(--np-shadow-dark), -8px -8px 16px var(--np-shadow-light);
+}
+
 /* El "Disponible" se destaca como la tarjeta oscura, igual que el balance del Dashboard */
 .summary-item-dark {
     background: var(--primary);
@@ -2886,3 +2895,192 @@ body[data-dark-mode="true"] .stat-card-hero .value { color: #fff; }
     .stat-card-hero { grid-column: span 1; }
     .content { padding: 68px 12px 88px; }
 }
+
+/* ── Vista 3D inmersiva: bubble chart neumórfico (Ingresos/Gastos/Metas/Inversión) ── */
+/* A propósito con valores fijos de modo claro (no `var(--np-*)`) — esta vista siempre se ve
+   clara con neumorfismo, sin importar si el resto de la app está en modo oscuro. */
+#vista3d-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: #eef1f6;
+    overflow-y: auto;
+    padding: 32px 40px 60px;
+}
+#vista3d-overlay.hidden { display: none; }
+
+.vista3d-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+#btn-volver-dashboard-3d {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 99px;
+    background: #f8f9ff;
+    color: #0b1c30;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 6px 6px 14px rgba(15,23,42,.08), -6px -6px 14px #ffffff;
+    transition: box-shadow .2s ease, transform .15s ease;
+}
+#btn-volver-dashboard-3d:hover { transform: translateY(-1px); box-shadow: 8px 8px 16px rgba(15,23,42,.1), -8px -8px 16px #ffffff; }
+
+#vista3d-titulo {
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.vista3d-toggle {
+    display: inline-flex;
+    gap: 4px;
+    background: rgba(15,23,42,.05);
+    border-radius: 12px;
+    padding: 4px;
+}
+.vista3d-toggle button {
+    border: none;
+    background: transparent;
+    color: #64748B;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 9px;
+    cursor: pointer;
+}
+.vista3d-toggle button.active { background: #0F172A; color: #fff; font-weight: 700; }
+
+.vista3d-total-strip {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.vista3d-total-card {
+    background: #0F172A;
+    border-radius: 20px;
+    padding: 16px 32px;
+    color: #fff;
+    box-shadow: 10px 10px 24px rgba(15,23,42,.2);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    max-width: 92vw;
+}
+.vista3d-total-label {
+    font-size: 10px;
+    color: rgba(255,255,255,.5);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-family: var(--font-mono);
+}
+.vista3d-total-monto {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 22px;
+}
+.vista3d-total-divisor { width: 1px; height: 32px; background: rgba(255,255,255,.15); flex-shrink: 0; }
+.vista3d-total-texto {
+    font-size: 12.5px;
+    color: rgba(255,255,255,.6);
+    max-width: 260px;
+    line-height: 1.4;
+}
+@media (max-width: 640px) {
+    .vista3d-total-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .vista3d-total-divisor { display: none; }
+}
+
+#vista3d-bubble-field {
+    position: relative;
+    height: min(58vh, 560px);
+    min-height: 320px;
+    max-width: 920px;
+    margin: 0 auto;
+}
+
+.vista3d-bubble {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 50%;
+    background: #F8FAFC;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+}
+.vista3d-bubble-glow {
+    position: absolute;
+    border-radius: 50%;
+    opacity: .13;
+    pointer-events: none;
+}
+.vista3d-bubble-content { text-align: center; position: relative; pointer-events: none; }
+.vista3d-bubble-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+.vista3d-bubble-icon .material-symbols-outlined { line-height: 1; }
+.vista3d-bubble-nombre { font-weight: 700; color: #0F172A; white-space: nowrap; }
+.vista3d-bubble-monto { font-family: var(--font-mono); font-weight: 800; }
+.vista3d-bubble-pct { color: #64748B; }
+
+#vista3d-hint {
+    text-align: center;
+    font-size: 12.5px;
+    color: #94A3B8;
+    margin-top: 8px;
+}
+@media (max-width: 640px) {
+    #vista3d-hint { display: none; }
+}
+
+#vista3d-empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 340px;
+    text-align: center;
+    color: #64748B;
+    font-size: 14px;
+    line-height: 1.5;
+}
+#vista3d-empty.hidden { display: none; }
+
+#btn-nueva-3d {
+    position: fixed;
+    right: 40px;
+    bottom: 36px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #10B981;
+    color: #0F172A;
+    border: none;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 14px 28px rgba(16,185,129,.35);
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+#btn-nueva-3d:hover { transform: scale(1.06); }

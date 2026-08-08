@@ -22,6 +22,13 @@ function navigateTo(pageId) {
     } else if (pageId === 'dashboard') {
         initDashboard();
     }
+
+    // La vista 3D no se dispara por navegación — se abre al clickear alguna de las 4 tarjetas
+    // del resumen en Ingresos & Gastos (ver transacciones.js). Igual la cerramos al salir de
+    // esa página por si quedó abierta encima.
+    if (pageId !== 'transacciones') {
+        window.cerrarVista3D?.();
+    }
 }
 
 document.querySelectorAll('.nav-links a, .bottom-nav a').forEach(a => {

@@ -84,3 +84,7 @@ const api = {
     buscarTickers: (q) => request('GET', `/inversiones/buscar-tickers?q=${encodeURIComponent(q)}`),
     obtenerEvolucion: (mercado, periodo) => request('GET', `/inversiones/evolucion?mercado=${mercado}&periodo=${periodo}`),
 };
+
+// `api` es un `const` de script clásico — no queda expuesto en window por sí solo, y lo necesita
+// metas3d.js (un módulo ES, con su propio scope) para pedir los datos de las metas.
+window.api = api;

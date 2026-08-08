@@ -31,6 +31,11 @@ async function cargarMetas() {
     try {
         [metas, ritmoMetas] = await Promise.all([api.listarMetas(), api.obtenerRitmoMetas()]);
         renderMetas();
+        // Si la vista 3D está abierta detrás del modal de detalle (abonar, editar, etc. se hacen
+        // sin salir de ella), refresca las burbujas para reflejar los montos nuevos.
+        if (!document.getElementById('vista3d-overlay').classList.contains('hidden')) {
+            window.actualizarVista3DActual?.();
+        }
     } catch (err) {
         showToast(err.message, 'error');
     }

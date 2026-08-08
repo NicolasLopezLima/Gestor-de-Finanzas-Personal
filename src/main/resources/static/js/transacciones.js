@@ -237,6 +237,20 @@ function actualizarFiltroCategoria() {
     document.getElementById('filtro-categoria').value = filtroCategoria;
 }
 
+// Llamada desde la vista 3D (Ingreso/Gasto no tienen un "detalle" propio por categoría como Meta
+// o Inversión) — al clickear una burbuja, se cierra la vista y se deja la tabla de abajo filtrada
+// justo en esa categoría, como si el usuario hubiese usado los filtros de siempre a mano.
+function filtrarPorCategoriaYCerrarVista3D(tipo, categoria) {
+    filtroActivo = tipo;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filter === tipo));
+    actualizarFiltroCategoria();
+    filtroCategoria = categoria;
+    document.getElementById('filtro-categoria').value = categoria;
+    renderTabla();
+    window.cerrarVista3D?.();
+}
+window.filtrarPorCategoriaYCerrarVista3D = filtrarPorCategoriaYCerrarVista3D;
+
 // ── Gestión de categorías (crear/editar/borrar, con ícono propio) ──────────
 
 let categoriaModalTipo = 'INGRESO';
@@ -509,19 +523,19 @@ function renderPeriodo() {
 
     const bar = document.getElementById('summary-bar');
     bar.innerHTML = `
-        <div class="summary-item">
+        <div class="summary-item summary-item-clickable" onclick="window.mostrarVista3D('INGRESO')">
             <div class="s-label">Ingresos</div>
             <div class="s-value text-success">${fmt(ingresosHastaHoy)}</div>
         </div>
-        <div class="summary-item">
+        <div class="summary-item summary-item-clickable" onclick="window.mostrarVista3D('GASTO')">
             <div class="s-label">Gastos</div>
             <div class="s-value text-danger">${fmt(gastosHastaHoy)}</div>
         </div>
-        <div class="summary-item summary-item-meta">
+        <div class="summary-item summary-item-meta summary-item-clickable" onclick="window.mostrarVista3D('META')">
             <div class="s-label">Metas</div>
             <div class="s-value">${fmt(metasHastaHoy)}</div>
         </div>
-        <div class="summary-item summary-item-inversion">
+        <div class="summary-item summary-item-inversion summary-item-clickable" onclick="window.mostrarVista3D('INVERSION')">
             <div class="s-label">Inversión</div>
             <div class="s-value">${fmt(inversionHastaHoy)}</div>
         </div>

@@ -836,6 +836,36 @@
         </div>
     </main>
 
+    <div id="vista3d-overlay" class="hidden">
+        <div class="vista3d-header">
+            <button type="button" id="btn-volver-dashboard-3d">
+                <span class="material-symbols-outlined">arrow_back</span> Volver al Dashboard
+            </button>
+            <div id="vista3d-titulo"></div>
+            <div class="vista3d-toggle">
+                <button type="button" id="vista3d-toggle-burbujas" class="active">Burbujas</button>
+                <button type="button" id="vista3d-toggle-lista">Lista</button>
+            </div>
+        </div>
+
+        <div class="vista3d-total-strip">
+            <div class="vista3d-total-card">
+                <div>
+                    <div class="vista3d-total-label">Total</div>
+                    <div id="vista3d-total-monto" class="vista3d-total-monto"></div>
+                </div>
+                <div class="vista3d-total-divisor"></div>
+                <div id="vista3d-total-texto" class="vista3d-total-texto"></div>
+            </div>
+        </div>
+
+        <div id="vista3d-hint">Arrastrá una burbuja para moverla — clic simple para ver el detalle</div>
+        <div id="vista3d-empty" class="hidden">Todavía no hay nada para mostrar acá.</div>
+        <div id="vista3d-bubble-field"></div>
+
+        <button type="button" id="btn-nueva-3d" title="Agregar">+</button>
+    </div>
+
     <script src="js/api.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/transacciones.js"></script>
@@ -843,6 +873,7 @@
     <script src="js/metas.js"></script>
     <script src="js/inversiones.js"></script>
     <script src="js/dashboard.js"></script>
+    <script src="js/vista3d.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
