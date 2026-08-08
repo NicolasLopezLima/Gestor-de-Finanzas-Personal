@@ -78,10 +78,15 @@ async function initDashboard() {
 
     const invertido = resumen.totalInvertido ?? 0;
 
+    // Igual que en Ingresos & Gastos: una transacción con fecha futura (recurrente o cargada a
+    // mano) todavía no cuenta como plata real, así que el Balance disponible del Dashboard usa
+    // el mismo recorte "hasta hoy" en vez de los totales del mes completo.
+    const totales = totalesHastaHoy(periodo.transacciones);
+
     // % del ingreso del mes que quedó como balance disponible — mismo criterio que "Ahorro" en
     // el resto de la app (Presupuesto/Metas): balance / ingresos, nunca negativo ni > 100.
-    const pctAhorro = periodo.totalIngresos > 0
-        ? Math.max(0, Math.min(100, Math.round((periodo.balance / periodo.totalIngresos) * 100)))
+    const pctAhorro = totales.ingresos > 0
+        ? Math.max(0, Math.min(100, Math.round((totales.balance / totales.ingresos) * 100)))
         : 0;
     const ringHero = buildDonut(
         [{ value: pctAhorro, color: 'var(--success)' }, { value: 100 - pctAhorro, color: 'rgba(255,255,255,.12)' }],
@@ -91,8 +96,9 @@ async function initDashboard() {
     // Comparación vs. el mes anterior: solo se muestra si ese período existe y tuvo un balance
     // distinto de cero para comparar contra — nunca se inventa un % sin una base real.
     let comparacionHtml = '';
-    if (periodoPrev && periodoPrev.balance) {
-        const variacion = Math.round(((periodo.balance - periodoPrev.balance) / Math.abs(periodoPrev.balance)) * 100);
+    const balancePrev = periodoPrev ? totalesHastaHoy(periodoPrev.transacciones).balance : 0;
+    if (periodoPrev && balancePrev) {
+        const variacion = Math.round(((totales.balance - balancePrev) / Math.abs(balancePrev)) * 100);
         const subiendo = variacion >= 0;
         comparacionHtml = `
             <span class="dash-hero-comparacion ${subiendo ? 'up' : 'down'}">
@@ -107,7 +113,7 @@ async function initDashboard() {
                 <div class="dash-balance-hero-top">
                     <div>
                         <div class="dash-balance-hero-label">Balance disponible</div>
-                        <div class="dash-balance-hero-value">${fmt(periodo.balance)}</div>
+                        <div class="dash-balance-hero-value">${fmt(totales.balance)}</div>
                         ${comparacionHtml}
                     </div>
                     <div class="dash-donut-wrapper" style="width:88px;height:88px;margin:0">
@@ -121,11 +127,11 @@ async function initDashboard() {
                 <div class="dash-balance-hero-stats">
                     <div class="dash-balance-hero-stat">
                         <span class="material-symbols-outlined">arrow_upward</span>
-                        <div><div class="dash-balance-hero-stat-label">Ingresos</div><div class="dash-balance-hero-stat-value">${fmt(periodo.totalIngresos)}</div></div>
+                        <div><div class="dash-balance-hero-stat-label">Ingresos</div><div class="dash-balance-hero-stat-value">${fmt(totales.ingresos)}</div></div>
                     </div>
                     <div class="dash-balance-hero-stat">
                         <span class="material-symbols-outlined">arrow_downward</span>
-                        <div><div class="dash-balance-hero-stat-label">Gastos</div><div class="dash-balance-hero-stat-value">${fmt(periodo.totalGastos)}</div></div>
+                        <div><div class="dash-balance-hero-stat-label">Gastos</div><div class="dash-balance-hero-stat-value">${fmt(totales.gastos)}</div></div>
                     </div>
                     <div class="dash-balance-hero-stat">
                         <span class="material-symbols-outlined">donut_small</span>

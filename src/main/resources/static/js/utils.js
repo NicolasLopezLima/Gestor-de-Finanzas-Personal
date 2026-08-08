@@ -4,6 +4,29 @@ function fmt(n) {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n ?? 0);
 }
 
+// "Hoy" como YYYY-MM-DD en hora LOCAL, comparable directo contra t.fecha. A propósito no usa
+// toISOString() (convierte a UTC primero — entre las 00:00 y las 03:00 en Argentina daría la
+// fecha de mañana).
+function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Suma ingresos/gastos/balance de una lista de transacciones, contando solo las que ya "pasaron"
+// (fecha <= hoy) — una transacción con fecha futura (recurrente o cargada a mano) todavía no es
+// plata real, aunque ya esté generada/cargada en el período. La usan Dashboard e Ingresos &
+// Gastos para que el criterio sea el mismo en toda la app.
+function totalesHastaHoy(transacciones) {
+    const hoy = todayStr();
+    const hastaHoy = (transacciones || []).filter(t => t.fecha <= hoy);
+    const ingresos = hastaHoy.filter(t => t.tipo === 'INGRESO').reduce((s, t) => s + Number(t.monto), 0);
+    const gastos = hastaHoy.filter(t => t.tipo === 'GASTO').reduce((s, t) => s + Number(t.monto), 0);
+    const metas = hastaHoy.filter(t => t.tipo === 'META').reduce((s, t) => s + Number(t.monto), 0);
+    // Un abono a una meta es plata real que salió del bolsillo, igual que un gasto — se resta del
+    // balance, solo que se muestra en su propia tarjeta en vez de mezclada con "Gastos".
+    return { ingresos, gastos, metas, balance: ingresos - gastos - metas };
+}
+
 function fmtDate(d) {
     if (!d) return '';
     return new Date(d + 'T00:00:00').toLocaleDateString('es-AR');
@@ -154,9 +177,18 @@ function crearCustomSelect(id, opciones, placeholder, extra) {
 function abrirCustomSelectPanel(panel, campo) {
     const r = campo.getBoundingClientRect();
     panel.style.left = `${r.left}px`;
-    panel.style.top = `${r.bottom + 6}px`;
     panel.style.width = `${r.width}px`;
+    panel.style.top = `${r.bottom + 6}px`;
     panel.classList.remove('hidden');
+
+    // Si abajo no entra (ej. un campo cerca del final de un modal largo, como "Frecuencia" al
+    // tildar "Repetir"), se abre hacia arriba en vez de quedar cortado por el borde de la ventana.
+    const margen = 8;
+    const panelRect = panel.getBoundingClientRect();
+    if (panelRect.bottom > window.innerHeight - margen) {
+        const arriba = r.top - panelRect.height - 6;
+        panel.style.top = `${Math.max(margen, arriba)}px`;
+    }
 
     const scrollCont = campo.closest('.modal-mapeo-content, .modal-content');
     const onScroll = () => cerrarCustomSelects();
