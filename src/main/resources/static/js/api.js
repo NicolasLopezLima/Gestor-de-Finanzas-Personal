@@ -69,6 +69,9 @@ const api = {
     eliminarMeta: (id) => request('DELETE', `/metas/${id}`),
     abonarMeta: (id, monto) => request('POST', `/metas/${id}/abonar`, { monto }),
     listarAbonosMeta: (id) => request('GET', `/metas/${id}/abonos`),
+    eliminarAbonoMeta: (metaId, abonoId) => request('DELETE', `/metas/${metaId}/abonos/${abonoId}`),
+    automatizarMeta: (id, monto) => request('POST', `/metas/${id}/automatizar`, { monto }),
+    pausarAutomatizacionMeta: (id) => request('POST', `/metas/${id}/pausar-automatizacion`),
     obtenerRitmoMetas: () => request('GET', '/metas/ritmo'),
 
     // Inversiones

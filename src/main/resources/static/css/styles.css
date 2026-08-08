@@ -418,7 +418,11 @@ tr:hover td { background: var(--primary-light) !important; }
     box-shadow: 6px 6px 16px rgba(0,0,0,.25), -4px -4px 16px rgba(255,255,255,.04);
 }
 .summary-item-dark .s-label { color: rgba(255,255,255,.6); }
+.disponible-base-info { cursor: help; }
 body[data-dark-mode="true"] .summary-item-dark { background: #1E293B; border: 1px solid #29344a; }
+
+/* "Metas" se destaca con el mismo acento que el resto de la sección Metas, distinto de Gastos */
+.summary-item-meta .s-value { color: var(--primary); }
 
 /* Period selector */
 .periodo-selector {
@@ -641,6 +645,20 @@ body[data-dark-mode="true"] .summary-item-dark { background: #1E293B; border: 1p
 }
 
 .meta-card-pct { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+
+.meta-auto-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+}
+.meta-auto-badge .material-symbols-outlined { font-size: 14px; }
 
 .meta-card-body { padding: 18px 20px; }
 
@@ -2515,9 +2533,14 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 /* Asistente de mapeo de columnas */
 .mapeo-intro { color: var(--text-muted); font-size: 13px; margin: 4px 0 16px; }
 .mapeo-recordar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); margin: 10px 0 16px; }
+.mapeo-recordar.hidden { display: none; }
 
 /* Transacciones fijas (recurrentes) */
 .tx-fija-badge { font-size: 14px !important; vertical-align: -3px; color: var(--text-muted); margin-left: 4px; }
+
+/* Transacción con fecha futura: todavía no "pasó" de verdad, no cuenta en Disponible. */
+.tx-row.tx-row-pendiente { opacity: .5; }
+.tx-row-pendiente-badge { font-size: 14px !important; vertical-align: -3px; color: var(--text-muted); margin-left: 4px; }
 
 .tx-fija-info {
     display: flex;
@@ -2530,6 +2553,7 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
     padding: 10px 14px;
     margin: 4px 0 16px;
 }
+.tx-fija-info.hidden { display: none; }
 .tx-fija-info .material-symbols-outlined { font-size: 18px; flex-shrink: 0; }
 .tx-fija-info button {
     margin-left: auto;
@@ -2641,6 +2665,7 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 .tx-row-monto { font-weight: 700; font-family: var(--font-mono); font-size: 14px; }
 .tx-row-monto.income { color: var(--success); }
 .tx-row-monto.expense { color: var(--danger); }
+.tx-row-monto.meta { color: var(--primary); }
 
 /* Transaction / position row icon badge */
 .tx-icon {
@@ -2655,6 +2680,7 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 }
 .tx-icon.success { background: rgba(16,185,129,.12); color: var(--success); }
 .tx-icon.danger  { background: rgba(225,29,72,.12); color: var(--danger); }
+.tx-icon.meta    { background: rgba(15,23,42,.08); color: var(--primary); }
 .tx-icon .material-symbols-outlined { font-size: 19px; }
 
 /* Hero stat card — balance destacado */

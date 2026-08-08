@@ -9,9 +9,14 @@ import com.finanzas.model.EstadoMeta;
 import com.finanzas.model.MetaFinanciera;
 import com.finanzas.model.Usuario;
 import com.finanzas.model.AsignacionPresupuesto;
+import com.finanzas.model.FrecuenciaRecurrencia;
+import com.finanzas.model.TipoTransaccion;
+import com.finanzas.model.TransaccionFija;
 import com.finanzas.repository.AbonoMetaRepository;
 import com.finanzas.repository.AsignacionPresupuestoRepository;
 import com.finanzas.repository.MetaFinancieraRepository;
+import com.finanzas.repository.TransaccionFijaRepository;
+import com.finanzas.repository.TransaccionRepository;
 import com.finanzas.repository.UsuarioRepository;
 import com.finanzas.service.MetaFinancieraService;
 import com.finanzas.service.PeriodoService;
@@ -25,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,15 +42,20 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
     private final AbonoMetaRepository abonoRepo;
     private final AsignacionPresupuestoRepository asignacionPresupuestoRepo;
     private final PeriodoService periodoService;
+    private final TransaccionFijaRepository transaccionFijaRepo;
+    private final TransaccionRepository transaccionRepo;
 
     public MetaFinancieraServiceImpl(MetaFinancieraRepository metaRepo, UsuarioRepository usuarioRepo,
                                       AbonoMetaRepository abonoRepo, AsignacionPresupuestoRepository asignacionPresupuestoRepo,
-                                      PeriodoService periodoService) {
+                                      PeriodoService periodoService, TransaccionFijaRepository transaccionFijaRepo,
+                                      TransaccionRepository transaccionRepo) {
         this.periodoService = periodoService;
         this.metaRepo = metaRepo;
         this.usuarioRepo = usuarioRepo;
         this.abonoRepo = abonoRepo;
         this.asignacionPresupuestoRepo = asignacionPresupuestoRepo;
+        this.transaccionFijaRepo = transaccionFijaRepo;
+        this.transaccionRepo = transaccionRepo;
     }
 
     @Override
@@ -110,19 +121,11 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
     public MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, Long usuarioId) {
         MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
-        meta.setMontoAcumulado(meta.getMontoAcumulado().add(monto));
-        if (meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) >= 0) {
-            meta.setEstado(EstadoMeta.COMPLETADA);
-        }
-        MetaFinanciera guardada = metaRepo.save(meta);
-
-        AbonoMeta abono = new AbonoMeta();
-        abono.setMeta(guardada);
-        abono.setMonto(monto);
-        abono.setFecha(LocalDateTime.now());
-        abonoRepo.save(abono);
-
-        return toDTO(guardada);
+        // El abono se registra como una Transaccion real (tipo META) que afecta Disponible y se
+        // ve en Ingresos & Gastos — PeriodoService es quien sabe crear transacciones y períodos,
+        // y desde ahí actualiza montoAcumulado/estado/AbonoMeta.
+        periodoService.registrarAbonoMeta(meta, monto, LocalDate.now(), usuarioId);
+        return toDTO(metaRepo.findByIdAndUsuarioId(id, usuarioId).orElseThrow());
     }
 
     @Override
@@ -131,6 +134,88 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
                 .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + metaId));
         return abonoRepo.findByMetaIdOrderByFechaDesc(metaId).stream()
                 .map(this::toAbonoDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public void eliminarAbono(Long metaId, Long abonoId, Long usuarioId) {
+        metaRepo.findByIdAndUsuarioId(metaId, usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + metaId));
+        AbonoMeta abono = abonoRepo.findById(abonoId)
+                .orElseThrow(() -> new IllegalArgumentException("Abono no encontrado: " + abonoId));
+        if (!abono.getMeta().getId().equals(metaId)) {
+            throw new IllegalStateException("No autorizado");
+        }
+        if (abono.getTransaccion() != null) {
+            // eliminarTransaccion ya revierte el abono (resta monto, vuelve a ACTIVA si hace
+            // falta) y borra el AbonoMeta antes de borrar la transacción — un solo camino.
+            periodoService.eliminarTransaccion(abono.getTransaccion().getId(), usuarioId);
+            return;
+        }
+        // Abono de antes de esta funcionalidad, sin transacción vinculada: revertir a mano.
+        MetaFinanciera meta = abono.getMeta();
+        meta.setMontoAcumulado(meta.getMontoAcumulado().subtract(abono.getMonto()).max(BigDecimal.ZERO));
+        if (meta.getEstado() == EstadoMeta.COMPLETADA && meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) < 0) {
+            meta.setEstado(EstadoMeta.ACTIVA);
+        }
+        metaRepo.save(meta);
+        abonoRepo.delete(abono);
+    }
+
+    @Override
+    public MetaFinancieraDTO automatizarAbono(Long id, BigDecimal monto, Long usuarioId) {
+        MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
+
+        Optional<TransaccionFija> existente = transaccionFijaRepo.findByMetaIdAndActivaTrue(id);
+        TransaccionFija fija = existente.orElseGet(TransaccionFija::new);
+        fija.setDescripcion("Abono a " + meta.getNombre());
+        fija.setMonto(monto);
+        fija.setTipo(TipoTransaccion.META);
+        fija.setCategoria(meta.getNombre());
+        fija.setMeta(meta);
+        fija.setUsuario(usuario);
+        fija.setActiva(true);
+        if (existente.isEmpty()) {
+            LocalDate hoy = LocalDate.now();
+            fija.setDia(hoy.getDayOfMonth());
+            fija.setAnioInicio(hoy.getYear());
+            fija.setMesInicio(hoy.getMonthValue());
+            fija.setFechaInicio(hoy);
+            fija.setFrecuencia(FrecuenciaRecurrencia.MENSUAL);
+        }
+        transaccionFijaRepo.save(fija);
+
+        // Dispara la generación del mes actual ya mismo (mismo mecanismo que cualquier
+        // transacción recurrente) — así el primer aporte automático no espera al próximo mes.
+        LocalDate hoy = LocalDate.now();
+        periodoService.obtenerPeriodo(hoy.getYear(), hoy.getMonthValue(), usuarioId);
+
+        return toDTO(metaRepo.findByIdAndUsuarioId(id, usuarioId).orElseThrow());
+    }
+
+    @Override
+    public MetaFinancieraDTO pausarAutomatizacion(Long id, Long usuarioId) {
+        metaRepo.findByIdAndUsuarioId(id, usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
+        TransaccionFija fija = transaccionFijaRepo.findByMetaIdAndActivaTrue(id)
+                .orElseThrow(() -> new IllegalStateException("Esta meta no tiene una automatización activa."));
+        fija.setActiva(false);
+        transaccionFijaRepo.save(fija);
+
+        // Igual que "Dejar de repetir" en transacciones normales: se borran (revirtiendo el
+        // abono de cada una) las instancias futuras ya generadas, dejando intactas las de meses
+        // pasados/el actual. Acá no hay una transacción "de referencia" como en cancelarRecurrencia,
+        // así que el corte de "futuro" es directamente contra hoy.
+        LocalDate hoy = LocalDate.now();
+        List<Long> idsFuturas = transaccionRepo.findByTransaccionFijaId(fija.getId()).stream()
+                .filter(t -> t.getFecha().isAfter(hoy))
+                .map(t -> t.getId())
+                .collect(Collectors.toList());
+        idsFuturas.forEach(txId -> periodoService.eliminarTransaccion(txId, usuarioId));
+
+        return toDTO(metaRepo.findByIdAndUsuarioId(id, usuarioId).orElseThrow());
     }
 
     @Override
@@ -205,6 +290,7 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
         dto.setId(a.getId());
         dto.setMonto(a.getMonto());
         dto.setFecha(a.getFecha());
+        dto.setTransaccionId(a.getTransaccion() != null ? a.getTransaccion().getId() : null);
         return dto;
     }
 
@@ -233,6 +319,10 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
                         .divide(m.getMontoObjetivo(), 0, RoundingMode.DOWN).intValue()
                 : 0;
         dto.setPorcentajeProgreso(Math.min(progreso, 100));
+        transaccionFijaRepo.findByMetaIdAndActivaTrue(m.getId()).ifPresent(fija -> {
+            dto.setAutomatizado(true);
+            dto.setMontoAutomatico(fija.getMonto());
+        });
         return dto;
     }
 }

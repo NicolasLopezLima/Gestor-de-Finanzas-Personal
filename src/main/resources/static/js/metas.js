@@ -8,6 +8,8 @@ async function initMetas() {
     document.getElementById('form-meta').addEventListener('submit', guardarMeta);
     document.getElementById('btn-cancelar-abono').addEventListener('click', cerrarModalAbono);
     document.getElementById('form-abono').addEventListener('submit', onAbonarMeta);
+    document.getElementById('btn-cancelar-automatizar').addEventListener('click', cerrarModalAutomatizar);
+    document.getElementById('form-automatizar').addEventListener('submit', onAutomatizarMeta);
     document.getElementById('btn-cerrar-detalle').addEventListener('click', cerrarModalDetalle);
     document.getElementById('modal-meta-detalle').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-meta-detalle')) cerrarModalDetalle();
@@ -113,6 +115,8 @@ function renderMetas() {
                         </button>
                         <div class="meta-kebab-menu hidden" id="meta-menu-${m.id}">
                             ${activa ? `<button type="button" onclick="cerrarMetaMenus(); abrirModalMeta(${m.id})">Editar</button>` : ''}
+                            ${activa && !m.automatizado ? `<button type="button" onclick="cerrarMetaMenus(); abrirModalAutomatizar(${m.id})">Automatizar aportes</button>` : ''}
+                            ${activa && m.automatizado ? `<button type="button" onclick="cerrarMetaMenus(); pausarAutomatizacion(${m.id})">Pausar automatización</button>` : ''}
                             <button type="button" class="meta-kebab-danger" onclick="cerrarMetaMenus(); eliminarMeta(${m.id})">Eliminar</button>
                         </div>
                     </div>
@@ -121,6 +125,7 @@ function renderMetas() {
                     <div class="meta-nombre"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:6px">${icono}</span>${m.nombre}</div>
                     <div class="meta-card-pct">${m.porcentajeProgreso}%</div>
                 </div>
+                ${m.automatizado ? `<div class="meta-auto-badge"><span class="material-symbols-outlined">sync</span> Automatizado: ${fmt(m.montoAutomatico)}/mes</div>` : ''}
             </div>
             <div class="meta-card-body">
                 ${m.descripcion ? `<p class="meta-card-desc">${m.descripcion}</p>` : ''}
@@ -305,7 +310,7 @@ async function abrirModalDetalle(id) {
         return;
     }
 
-    renderAportesRecientes(abonos);
+    renderAportesRecientes(id, abonos);
     renderStatsAbonos(m, abonos, faltante);
     renderConsejoMeta(m, abonos, faltante);
 }
@@ -318,7 +323,7 @@ function fmtFechaHora(iso) {
     return new Date(iso).toLocaleDateString('es-AR');
 }
 
-function renderAportesRecientes(abonos) {
+function renderAportesRecientes(metaId, abonos) {
     const cont = document.getElementById('detalle-aportes-list');
     if (!abonos.length) {
         cont.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Todavía no registraste aportes para esta meta.</p>';
@@ -333,7 +338,12 @@ function renderAportesRecientes(abonos) {
                     <div class="meta-detalle-aporte-fecha">${fmtFechaHora(a.fecha)}</div>
                 </div>
             </div>
-            <span class="meta-detalle-aporte-monto">+${fmt(a.monto)}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+                <span class="meta-detalle-aporte-monto">+${fmt(a.monto)}</span>
+                <button type="button" class="btn-icon" title="Deshacer este abono" onclick="onEliminarAbono(${metaId}, ${a.id})">
+                    <span class="material-symbols-outlined" style="font-size:16px">delete</span>
+                </button>
+            </div>
         </div>`).join('');
 }
 
@@ -451,6 +461,65 @@ async function onAbonarMeta(e) {
         cerrarModalAbono();
         await cargarMetas();
         showToast('Abono registrado');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function abrirModalAutomatizar(id) {
+    const m = metas.find(x => x.id === id);
+    document.getElementById('automatizar-meta-id').value = id;
+    document.getElementById('automatizar-monto').value = '';
+    document.getElementById('modal-automatizar-nombre').textContent = m?.nombre || '';
+    document.getElementById('modal-automatizar').classList.remove('hidden');
+    document.getElementById('automatizar-monto').focus();
+}
+
+function cerrarModalAutomatizar() {
+    document.getElementById('modal-automatizar').classList.add('hidden');
+}
+
+async function onAutomatizarMeta(e) {
+    e.preventDefault();
+    const id = +document.getElementById('automatizar-meta-id').value;
+    const monto = +document.getElementById('automatizar-monto').value;
+    try {
+        await api.automatizarMeta(id, monto);
+        cerrarModalAutomatizar();
+        await cargarMetas();
+        showToast('Abono automático activado');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function pausarAutomatizacion(id) {
+    const m = metas.find(x => x.id === id);
+    if (!(await confirmDialog({
+        title: '¿Pausar el abono automático?',
+        message: `Dejamos de abonar automáticamente a "${m?.nombre || 'esta meta'}" cada mes. Los abonos ya generados quedan como están; podés volver a automatizarla cuando quieras.`,
+        confirmText: 'Pausar',
+        danger: false,
+    }))) return;
+    try {
+        await api.pausarAutomatizacionMeta(id);
+        await cargarMetas();
+        showToast('Automatización pausada');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function onEliminarAbono(metaId, abonoId) {
+    if (!(await confirmDialog({
+        title: '¿Deshacer este abono?',
+        message: 'Se resta el monto del progreso de la meta y, si generó una transacción en Ingresos & Gastos, también se borra.',
+    }))) return;
+    try {
+        await api.eliminarAbonoMeta(metaId, abonoId);
+        await cargarMetas();
+        await abrirModalDetalle(metaId);
+        showToast('Abono eliminado');
     } catch (err) {
         showToast(err.message, 'error');
     }

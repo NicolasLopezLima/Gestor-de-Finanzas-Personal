@@ -32,6 +32,25 @@ const CATEGORIA_ICONOS_DISPONIBLES = [
     'favorite', 'local_cafe', 'spa',
 ];
 
+const FRECUENCIAS = [
+    { valor: 'SEMANAL', texto: 'Semanal' },
+    { valor: 'QUINCENAL', texto: 'Quincenal' },
+    { valor: 'MENSUAL', texto: 'Mensual' },
+    { valor: 'ANUAL', texto: 'Anual' },
+    { valor: 'PERSONALIZADA', texto: 'Cada N días' },
+];
+
+// Texto del banner "Esta transacción se repite ___" al editar una transacción recurrente.
+function labelFrecuencia(frecuencia, intervaloDias) {
+    switch (frecuencia) {
+        case 'SEMANAL': return 'cada semana';
+        case 'QUINCENAL': return 'cada 15 días';
+        case 'ANUAL': return 'todos los años';
+        case 'PERSONALIZADA': return intervaloDias ? `cada ${intervaloDias} días` : 'periódicamente';
+        default: return 'todos los meses';
+    }
+}
+
 async function cargarCategorias() {
     const lista = await api.listarCategorias();
     categoriasPorTipo = { INGRESO: [], GASTO: [] };
@@ -120,6 +139,15 @@ async function initTransacciones() {
     // Día actual por defecto
     document.getElementById('t-dia').value = new Date().getDate();
 
+    crearCustomSelect('t-frecuencia', FRECUENCIAS, null);
+    document.getElementById('t-repetir').addEventListener('change', (e) => {
+        document.getElementById('t-frecuencia-grupo').classList.toggle('hidden', !e.target.checked);
+    });
+    document.getElementById('t-frecuencia').addEventListener('change', () => {
+        const esPersonalizada = document.getElementById('t-frecuencia').value === 'PERSONALIZADA';
+        document.getElementById('t-frecuencia-dias-grupo').classList.toggle('hidden', !esPersonalizada);
+    });
+
     // Tabs filtro (tipo) + desplegable de filtro por categoría
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -153,6 +181,7 @@ async function initTransacciones() {
     actualizarFiltroCategoria();
     actualizarMesLabel();
     await cargarPeriodo();
+    programarActualizacionMedianoche();
 }
 
 function actualizarCategorias(tipo) {
@@ -312,6 +341,11 @@ function abrirModalTransaccion(id) {
     document.getElementById('t-dia').value = new Date().getDate();
     document.getElementById('t-repetir-grupo').classList.remove('hidden');
     document.getElementById('t-fija-info').classList.add('hidden');
+    document.getElementById('t-repetir').checked = false;
+    document.getElementById('t-frecuencia-grupo').classList.add('hidden');
+    document.getElementById('t-frecuencia-dias-grupo').classList.add('hidden');
+    document.getElementById('t-frecuencia').value = 'MENSUAL';
+    document.getElementById('t-frecuencia-dias').value = '';
 
     let tipo = 'INGRESO';
     const t = id ? (periodoActual?.transacciones || []).find(x => x.id === id) : null;
@@ -324,12 +358,16 @@ function abrirModalTransaccion(id) {
         document.getElementById('t-dia').value = +t.fecha.slice(8, 10);
         tipo = t.tipo;
 
-        // No se puede tildar "repetir" al editar (solo se decide al crear)
-        document.getElementById('t-repetir-grupo').classList.add('hidden');
         if (t.transaccionFijaId) {
+            // Ya es recurrente: acá no se cambia la frecuencia, solo se puede cancelarla.
+            document.getElementById('t-repetir-grupo').classList.add('hidden');
             document.getElementById('t-fija-info').classList.remove('hidden');
+            document.getElementById('t-fija-info-texto').textContent =
+                `Esta transacción se repite ${labelFrecuencia(t.frecuencia, t.intervaloDias)}.`;
             document.getElementById('btn-cancelar-recurrencia').onclick = () => cancelarRecurrencia(t.id);
         }
+        // Si todavía no es recurrente, el checkbox "Repetir esta transacción" queda visible
+        // (ya lo dejó así el reset de arriba) para poder convertirla en recurrente desde acá.
     }
 
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
@@ -363,6 +401,19 @@ function editarTransaccion(id) {
 
 function cerrarModalTransaccion() {
     document.getElementById('modal-transaccion').classList.add('hidden');
+}
+
+// Si la pestaña queda abierta de un día para el otro, una transacción "pendiente" (fecha futura)
+// tiene que pasar a verse normal y entrar en Disponible sin que el usuario recargue la página —
+// se reprograma a sí mismo cada vez que dispara, así sigue funcionando noche tras noche.
+function programarActualizacionMedianoche() {
+    const ahora = new Date();
+    const proximaMedianoche = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1, 0, 0, 5);
+    const msHastaMedianoche = proximaMedianoche - ahora;
+    setTimeout(() => {
+        renderPeriodo();
+        programarActualizacionMedianoche();
+    }, msHastaMedianoche);
 }
 
 function actualizarMesLabel() {
@@ -414,10 +465,13 @@ function renderPeriodo() {
         ?.filter(a => a.tipo === 'GASTO')
         .reduce((sum, a) => sum + Number(a.monto), 0) ?? 0;
 
-    // Disponible = gasto presupuestado + ingresos extra registrados - gastos reales
-    const disponible = gastoPresupuestado
-        + Number(periodoActual.totalIngresos)
-        - Number(periodoActual.totalGastos);
+    // Ingresos, Gastos, Metas y Disponible reflejan solo la plata que YA pasó por el bolsillo
+    // hasta hoy — una transacción con fecha futura (recurrente o cargada a mano) no cuenta en
+    // ninguno de los cuatro todavía, aunque ya esté generada/cargada en el período.
+    const { ingresos: ingresosHastaHoy, gastos: gastosHastaHoy, metas: metasHastaHoy } = totalesHastaHoy(periodoActual.transacciones);
+
+    // Disponible = gasto presupuestado + ingresos hasta hoy - gastos hasta hoy - metas hasta hoy
+    const disponible = gastoPresupuestado + ingresosHastaHoy - gastosHastaHoy - metasHastaHoy;
 
     const tienePresupuesto = presupuestoMes !== null;
 
@@ -425,14 +479,18 @@ function renderPeriodo() {
     bar.innerHTML = `
         <div class="summary-item">
             <div class="s-label">Ingresos</div>
-            <div class="s-value text-success">${fmt(periodoActual.totalIngresos)}</div>
+            <div class="s-value text-success">${fmt(ingresosHastaHoy)}</div>
         </div>
         <div class="summary-item">
             <div class="s-label">Gastos</div>
-            <div class="s-value text-danger">${fmt(periodoActual.totalGastos)}</div>
+            <div class="s-value text-danger">${fmt(gastosHastaHoy)}</div>
+        </div>
+        <div class="summary-item summary-item-meta">
+            <div class="s-label">Metas</div>
+            <div class="s-value">${fmt(metasHastaHoy)}</div>
         </div>
         <div class="summary-item summary-item-dark">
-            <div class="s-label">Disponible${tienePresupuesto ? ` <small style="color:rgba(255,255,255,.5);font-weight:400">base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
+            <div class="s-label">Disponible${tienePresupuesto ? ` <small class="disponible-base-info" style="color:rgba(255,255,255,.5);font-weight:400" title="Es el monto que asignaste a Gasto en tu Presupuesto de este mes. Se cuenta como base porque ya está reservado para gastar, aunque todavía no lo hayas usado."><span class="material-symbols-outlined" style="font-size:12px;vertical-align:-1px">info</span> base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
             <div class="s-value" style="color:${disponible >= 0 ? '#fff' : 'var(--danger)'}">
                 ${fmt(disponible)}
             </div>
@@ -452,10 +510,10 @@ function agruparPorFecha(lista) {
 }
 
 function labelFecha(fechaStr) {
-    const hoyStr = new Date().toISOString().slice(0, 10);
+    const hoyStr = todayStr();
     const ayer = new Date();
     ayer.setDate(ayer.getDate() - 1);
-    const ayerStr = ayer.toISOString().slice(0, 10);
+    const ayerStr = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, '0')}-${String(ayer.getDate()).padStart(2, '0')}`;
     if (fechaStr === hoyStr) return 'Hoy';
     if (fechaStr === ayerStr) return 'Ayer';
     return fmtDate(fechaStr);
@@ -481,30 +539,35 @@ function renderTabla() {
         return;
     }
 
+    const hoy = todayStr();
     const grupos = agruparPorFecha(lista);
     cont.innerHTML = grupos.map(([fecha, items]) => `
         <div class="tx-group">
             <div class="tx-group-label">${labelFecha(fecha)}</div>
             ${items.map(t => {
                 const seleccionada = idsSeleccionados.has(t.id);
+                const pendiente = t.fecha > hoy;
+                const esMeta = t.tipo === 'META';
+                const claseTipo = t.tipo === 'INGRESO' ? 'success' : (esMeta ? 'meta' : 'danger');
+                const iconoFallback = t.tipo === 'INGRESO' ? 'arrow_upward' : (esMeta ? 'track_changes' : 'arrow_downward');
                 return `
-                <div class="tx-row ${modoSeleccion ? 'tx-row-selectable' : ''} ${seleccionada ? 'tx-row-selected' : ''}"
+                <div class="tx-row ${modoSeleccion ? 'tx-row-selectable' : ''} ${seleccionada ? 'tx-row-selected' : ''} ${pendiente ? 'tx-row-pendiente' : ''}"
                      ${modoSeleccion ? `onclick="toggleSeleccionTx(${t.id})"` : ''}>
                     ${modoSeleccion ? `
                         <span class="tx-checkbox-circle">
                             <span class="material-symbols-outlined">${seleccionada ? 'check_circle' : 'radio_button_unchecked'}</span>
                         </span>` : ''}
-                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">
-                        <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || (t.tipo === 'INGRESO' ? 'arrow_upward' : 'arrow_downward')}</span>
+                    <span class="tx-icon ${claseTipo}">
+                        <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || iconoFallback}</span>
                     </span>
                     <div class="tx-row-info">
-                        <div class="tx-row-desc">${t.descripcion}${t.transaccionFijaId ? ' <span class="material-symbols-outlined tx-fija-badge" title="Se repite todos los meses">sync</span>' : ''}</div>
+                        <div class="tx-row-desc">${t.descripcion}${t.transaccionFijaId ? ` <span class="material-symbols-outlined tx-fija-badge" title="Se repite ${labelFrecuencia(t.frecuencia, t.intervaloDias)}">sync</span>` : ''}${pendiente ? ' <span class="material-symbols-outlined tx-row-pendiente-badge" title="Todavía no llegó esta fecha">schedule</span>' : ''}</div>
                         <div class="tx-row-cat">${t.categoria}</div>
                     </div>
                     <div class="tx-row-right">
-                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
+                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : (esMeta ? 'meta' : 'expense')}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
                         ${periodoActual.cerrado || modoSeleccion ? '' : `
-                            <button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>
+                            ${esMeta ? '' : `<button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>`}
                             <button class="btn-icon" onclick="eliminarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">delete</span></button>`}
                     </div>
                 </div>`;
@@ -614,7 +677,20 @@ async function onAgregarTransaccion(e) {
         fecha,
     };
     const id = document.getElementById('t-id').value;
-    if (!id) dto.repetirTodosLosMeses = document.getElementById('t-repetir').checked;
+    // El checkbox solo está visible para crear una transacción nueva o para editar una que
+    // todavía no es recurrente (ver abrirModalTransaccion) — en ambos casos vale leerlo igual.
+    dto.repetirTodosLosMeses = document.getElementById('t-repetir').checked;
+    if (dto.repetirTodosLosMeses) {
+        dto.frecuencia = document.getElementById('t-frecuencia').value;
+        if (dto.frecuencia === 'PERSONALIZADA') {
+            const intervalo = +document.getElementById('t-frecuencia-dias').value;
+            if (!intervalo || intervalo < 1) {
+                showToast('Indicá cada cuántos días se repite', 'error');
+                return;
+            }
+            dto.intervaloDias = intervalo;
+        }
+    }
     try {
         if (id) {
             await api.editarTransaccion(+id, dto);

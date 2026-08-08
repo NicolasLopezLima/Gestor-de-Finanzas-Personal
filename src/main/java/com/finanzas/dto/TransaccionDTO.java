@@ -33,6 +33,14 @@ public class TransaccionDTO {
 
     private boolean repetirTodosLosMeses; // solo se lee al crear (agregarTransaccion)
 
+    // frecuencia/intervaloDias viajan en ambos sentidos: al crear (agregarTransaccion) los lee el
+    // servidor si repetirTodosLosMeses es true; al leer (toDTO) el servidor los completa desde la
+    // TransaccionFija vinculada, para que el frontend pueda mostrar la frecuencia real al editar.
+    private String frecuencia; // nombre de FrecuenciaRecurrencia; null si no es recurrente
+    private Integer intervaloDias; // solo tiene valor si frecuencia == "PERSONALIZADA"
+
+    private Long metaId; // solo tiene sentido si tipo == META — a qué meta corresponde el abono
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getDescripcion() { return descripcion; }
@@ -51,4 +59,10 @@ public class TransaccionDTO {
     public void setTransaccionFijaId(Long transaccionFijaId) { this.transaccionFijaId = transaccionFijaId; }
     public boolean isRepetirTodosLosMeses() { return repetirTodosLosMeses; }
     public void setRepetirTodosLosMeses(boolean repetirTodosLosMeses) { this.repetirTodosLosMeses = repetirTodosLosMeses; }
+    public String getFrecuencia() { return frecuencia; }
+    public void setFrecuencia(String frecuencia) { this.frecuencia = frecuencia; }
+    public Integer getIntervaloDias() { return intervaloDias; }
+    public void setIntervaloDias(Integer intervaloDias) { this.intervaloDias = intervaloDias; }
+    public Long getMetaId() { return metaId; }
+    public void setMetaId(Long metaId) { this.metaId = metaId; }
 }

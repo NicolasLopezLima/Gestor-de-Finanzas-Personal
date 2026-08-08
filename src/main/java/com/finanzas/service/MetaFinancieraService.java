@@ -14,5 +14,8 @@ public interface MetaFinancieraService {
     List<MetaFinancieraDTO> listarTodas(Long usuarioId);
     MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, Long usuarioId);
     List<AbonoMetaDTO> listarAbonos(Long metaId, Long usuarioId);
+    void eliminarAbono(Long metaId, Long abonoId, Long usuarioId);
+    MetaFinancieraDTO automatizarAbono(Long id, BigDecimal monto, Long usuarioId);
+    MetaFinancieraDTO pausarAutomatizacion(Long id, Long usuarioId);
     MetasRitmoDTO obtenerResumenRitmo(Long usuarioId);
 }

@@ -22,6 +22,12 @@ public class AbonoMeta {
     @Column(nullable = false)
     private LocalDateTime fecha;
 
+    // Nullable: vincula el abono con la Transaccion que generó (para poder revertir ambos juntos
+    // al deshacer). Los abonos de antes de esta funcionalidad quedan con transaccion = null.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transaccion_id", nullable = true)
+    private Transaccion transaccion;
+
     public AbonoMeta() {}
 
     public Long getId() { return id; }
@@ -31,4 +37,6 @@ public class AbonoMeta {
     public void setMonto(BigDecimal monto) { this.monto = monto; }
     public LocalDateTime getFecha() { return fecha; }
     public void setFecha(LocalDateTime fecha) { this.fecha = fecha; }
+    public Transaccion getTransaccion() { return transaccion; }
+    public void setTransaccion(Transaccion transaccion) { this.transaccion = transaccion; }
 }

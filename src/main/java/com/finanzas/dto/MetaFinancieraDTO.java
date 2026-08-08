@@ -33,6 +33,9 @@ public class MetaFinancieraDTO {
 
     private int porcentajeProgreso;
 
+    private boolean automatizado;
+    private BigDecimal montoAutomatico; // solo tiene valor si automatizado == true
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getNombre() { return nombre; }
@@ -51,4 +54,8 @@ public class MetaFinancieraDTO {
     public void setIcono(String icono) { this.icono = icono; }
     public int getPorcentajeProgreso() { return porcentajeProgreso; }
     public void setPorcentajeProgreso(int porcentajeProgreso) { this.porcentajeProgreso = porcentajeProgreso; }
+    public boolean isAutomatizado() { return automatizado; }
+    public void setAutomatizado(boolean automatizado) { this.automatizado = automatizado; }
+    public BigDecimal getMontoAutomatico() { return montoAutomatico; }
+    public void setMontoAutomatico(BigDecimal montoAutomatico) { this.montoAutomatico = montoAutomatico; }
 }

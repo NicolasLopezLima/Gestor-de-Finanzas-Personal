@@ -121,6 +121,7 @@
                     <button class="tab np-tab active" data-filter="todos">Todos</button>
                     <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
                     <button class="tab np-tab" data-filter="GASTO">Gastos</button>
+                    <button class="tab np-tab" data-filter="META">Metas</button>
                 </div>
                 <button type="button" id="btn-modo-seleccion" class="np-button np-pill np-pill-sm tx-select-toggle">
                     <span class="material-symbols-outlined">delete_sweep</span> Seleccionar
@@ -195,11 +196,25 @@
                         </div>
 
                         <label class="mapeo-recordar" id="t-repetir-grupo">
-                            <input type="checkbox" id="t-repetir"> Repetir todos los meses
+                            <input type="checkbox" id="t-repetir"> Repetir esta transacción
                         </label>
+                        <div class="form-group hidden" id="t-frecuencia-grupo">
+                            <label class="np-label-sm">Frecuencia</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">event_repeat</span>
+                                <div id="t-frecuencia" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                            <div class="hidden" id="t-frecuencia-dias-grupo" style="margin-top:8px">
+                                <div class="np-flat tx-field">
+                                    <span class="material-symbols-outlined tx-field-icon">tag</span>
+                                    <input type="number" id="t-frecuencia-dias" min="1" placeholder="Cada cuántos días">
+                                </div>
+                            </div>
+                        </div>
                         <div class="tx-fija-info hidden" id="t-fija-info">
                             <span class="material-symbols-outlined">sync</span>
-                            <span>Esta transacción se repite todos los meses.</span>
+                            <span id="t-fija-info-texto">Esta transacción se repite todos los meses.</span>
                             <button type="button" id="btn-cancelar-recurrencia">Dejar de repetir</button>
                         </div>
 
@@ -668,6 +683,25 @@
                         <div class="modal-actions">
                             <button type="submit" class="btn btn-primary">Abonar</button>
                             <button type="button" id="btn-cancelar-abono" class="btn btn-secondary">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="modal-automatizar" class="modal hidden">
+                <div class="modal-content" style="max-width:380px">
+                    <h2>Automatizar aportes</h2>
+                    <p id="modal-automatizar-nombre" style="color:var(--text-muted);margin-bottom:4px"></p>
+                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">Se va a abonar este monto automáticamente todos los meses, como una transacción de tipo "Meta" en Ingresos & Gastos. Podés pausarlo cuando quieras.</p>
+                    <form id="form-automatizar">
+                        <input type="hidden" id="automatizar-meta-id">
+                        <div class="form-group">
+                            <label>Monto mensual</label>
+                            <input type="number" id="automatizar-monto" min="0.01" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Automatizar</button>
+                            <button type="button" id="btn-cancelar-automatizar" class="btn btn-secondary">Cancelar</button>
                         </div>
                     </form>
                 </div>

@@ -73,4 +73,23 @@ public class MetaFinancieraController {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
         return ResponseEntity.ok(metaService.listarAbonos(id, uid));
     }
+
+    @DeleteMapping("/{metaId}/abonos/{abonoId}")
+    public ResponseEntity<Void> eliminarAbono(@PathVariable Long metaId, @PathVariable Long abonoId) {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        metaService.eliminarAbono(metaId, abonoId, uid);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/automatizar")
+    public ResponseEntity<MetaFinancieraDTO> automatizar(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        return ResponseEntity.ok(metaService.automatizarAbono(id, body.get("monto"), uid));
+    }
+
+    @PostMapping("/{id}/pausar-automatizacion")
+    public ResponseEntity<MetaFinancieraDTO> pausarAutomatizacion(@PathVariable Long id) {
+        Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
+        return ResponseEntity.ok(metaService.pausarAutomatizacion(id, uid));
+    }
 }
