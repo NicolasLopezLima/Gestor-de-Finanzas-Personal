@@ -22,9 +22,11 @@ function totalesHastaHoy(transacciones) {
     const ingresos = hastaHoy.filter(t => t.tipo === 'INGRESO').reduce((s, t) => s + Number(t.monto), 0);
     const gastos = hastaHoy.filter(t => t.tipo === 'GASTO').reduce((s, t) => s + Number(t.monto), 0);
     const metas = hastaHoy.filter(t => t.tipo === 'META').reduce((s, t) => s + Number(t.monto), 0);
-    // Un abono a una meta es plata real que salió del bolsillo, igual que un gasto — se resta del
-    // balance, solo que se muestra en su propia tarjeta en vez de mezclada con "Gastos".
-    return { ingresos, gastos, metas, balance: ingresos - gastos - metas };
+    const inversion = hastaHoy.filter(t => t.tipo === 'INVERSION').reduce((s, t) => s + Number(t.monto), 0);
+    // Un abono a una meta o un aporte a una inversión son plata real que salió del bolsillo, igual
+    // que un gasto — se restan del balance, solo que se muestran en su propia tarjeta en vez de
+    // mezclados con "Gastos".
+    return { ingresos, gastos, metas, inversion, balance: ingresos - gastos - metas - inversion };
 }
 
 function fmtDate(d) {

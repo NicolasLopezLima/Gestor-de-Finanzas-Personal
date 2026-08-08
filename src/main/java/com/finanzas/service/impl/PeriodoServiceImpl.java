@@ -387,6 +387,11 @@ public class PeriodoServiceImpl implements PeriodoService {
                 .map(Transaccion::getMonto)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal inversion = transacciones.stream()
+                .filter(t -> t.getTipo() == TipoTransaccion.INVERSION)
+                .map(Transaccion::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         PeriodoResumenDTO dto = new PeriodoResumenDTO();
         dto.setId(periodo.getId());
         dto.setAnio(periodo.getAnio());
@@ -395,9 +400,11 @@ public class PeriodoServiceImpl implements PeriodoService {
         dto.setTotalIngresos(ingresos);
         dto.setTotalGastos(gastos);
         dto.setTotalMetas(metas);
+        dto.setTotalInversion(inversion);
         // Todo lo que salió de verdad se resta del balance, sin importar la sub-categoría — un
-        // abono a una meta es tan real como un gasto, solo que se muestra en su propia tarjeta.
-        dto.setBalance(ingresos.subtract(gastos).subtract(metas));
+        // abono a una meta o un aporte a una inversión son tan reales como un gasto, solo que se
+        // muestran en su propia tarjeta.
+        dto.setBalance(ingresos.subtract(gastos).subtract(metas).subtract(inversion));
         dto.setTransacciones(transacciones.stream().map(this::toDTO).collect(Collectors.toList()));
         return dto;
     }

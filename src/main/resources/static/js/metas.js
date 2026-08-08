@@ -8,8 +8,17 @@ async function initMetas() {
     document.getElementById('form-meta').addEventListener('submit', guardarMeta);
     document.getElementById('btn-cancelar-abono').addEventListener('click', cerrarModalAbono);
     document.getElementById('form-abono').addEventListener('submit', onAbonarMeta);
-    document.getElementById('btn-cancelar-automatizar').addEventListener('click', cerrarModalAutomatizar);
-    document.getElementById('form-automatizar').addEventListener('submit', onAutomatizarMeta);
+    document.querySelectorAll('#modal-abono .tipo-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#modal-abono .tipo-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('abono-modo').value = btn.dataset.value;
+            const esAutomatico = btn.dataset.value === 'AUTOMATICO';
+            document.getElementById('abono-monto-label').textContent = esAutomatico ? 'Monto mensual' : 'Monto a abonar';
+            document.getElementById('abono-automatico-info').classList.toggle('hidden', !esAutomatico);
+            document.getElementById('btn-confirmar-abono').textContent = esAutomatico ? 'Automatizar' : 'Abonar';
+        });
+    });
     document.getElementById('btn-cerrar-detalle').addEventListener('click', cerrarModalDetalle);
     document.getElementById('modal-meta-detalle').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-meta-detalle')) cerrarModalDetalle();
@@ -115,7 +124,6 @@ function renderMetas() {
                         </button>
                         <div class="meta-kebab-menu hidden" id="meta-menu-${m.id}">
                             ${activa ? `<button type="button" onclick="cerrarMetaMenus(); abrirModalMeta(${m.id})">Editar</button>` : ''}
-                            ${activa && !m.automatizado ? `<button type="button" onclick="cerrarMetaMenus(); abrirModalAutomatizar(${m.id})">Automatizar aportes</button>` : ''}
                             ${activa && m.automatizado ? `<button type="button" onclick="cerrarMetaMenus(); pausarAutomatizacion(${m.id})">Pausar automatización</button>` : ''}
                             <button type="button" class="meta-kebab-danger" onclick="cerrarMetaMenus(); eliminarMeta(${m.id})">Eliminar</button>
                         </div>
@@ -444,6 +452,13 @@ function abrirModalAbono(id) {
     document.getElementById('abono-meta-id').value = id;
     document.getElementById('abono-monto').value = '';
     document.getElementById('modal-abono-nombre').textContent = m?.nombre || '';
+    // Siempre arranca en "Manual" — si la meta ya está automatizada, cambiar el monto acá
+    // simplemente actualiza el monto mensual (automatizarMeta ya soporta ese caso).
+    document.querySelectorAll('#modal-abono .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'MANUAL'));
+    document.getElementById('abono-modo').value = 'MANUAL';
+    document.getElementById('abono-monto-label').textContent = 'Monto a abonar';
+    document.getElementById('abono-automatico-info').classList.add('hidden');
+    document.getElementById('btn-confirmar-abono').textContent = 'Abonar';
     document.getElementById('modal-abono').classList.remove('hidden');
     document.getElementById('abono-monto').focus();
 }
@@ -456,38 +471,17 @@ async function onAbonarMeta(e) {
     e.preventDefault();
     const id = +document.getElementById('abono-meta-id').value;
     const monto = +document.getElementById('abono-monto').value;
+    const esAutomatico = document.getElementById('abono-modo').value === 'AUTOMATICO';
     try {
-        await api.abonarMeta(id, monto);
+        if (esAutomatico) {
+            await api.automatizarMeta(id, monto);
+            showToast('Abono automático activado');
+        } else {
+            await api.abonarMeta(id, monto);
+            showToast('Abono registrado');
+        }
         cerrarModalAbono();
         await cargarMetas();
-        showToast('Abono registrado');
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
-}
-
-function abrirModalAutomatizar(id) {
-    const m = metas.find(x => x.id === id);
-    document.getElementById('automatizar-meta-id').value = id;
-    document.getElementById('automatizar-monto').value = '';
-    document.getElementById('modal-automatizar-nombre').textContent = m?.nombre || '';
-    document.getElementById('modal-automatizar').classList.remove('hidden');
-    document.getElementById('automatizar-monto').focus();
-}
-
-function cerrarModalAutomatizar() {
-    document.getElementById('modal-automatizar').classList.add('hidden');
-}
-
-async function onAutomatizarMeta(e) {
-    e.preventDefault();
-    const id = +document.getElementById('automatizar-meta-id').value;
-    const monto = +document.getElementById('automatizar-monto').value;
-    try {
-        await api.automatizarMeta(id, monto);
-        cerrarModalAutomatizar();
-        await cargarMetas();
-        showToast('Abono automático activado');
     } catch (err) {
         showToast(err.message, 'error');
     }

@@ -25,5 +25,9 @@ public class OneTimeSchemaFix {
     public void ampliarColumnaTipo() {
         jdbcTemplate.execute("ALTER TABLE transacciones MODIFY COLUMN tipo VARCHAR(20) NOT NULL");
         jdbcTemplate.execute("ALTER TABLE transacciones_fijas MODIFY COLUMN tipo VARCHAR(20) NOT NULL");
+        // Mismo problema: "categorias.tipo" nunca se probó con más que INGRESO/GASTO hasta ahora
+        // (META no pasa por esta tabla), y con INVERSION sumándose como categoría elegible se
+        // pisaría el mismo ENUM nativo.
+        jdbcTemplate.execute("ALTER TABLE categorias MODIFY COLUMN tipo VARCHAR(20) NOT NULL");
     }
 }

@@ -122,6 +122,7 @@
                     <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
                     <button class="tab np-tab" data-filter="GASTO">Gastos</button>
                     <button class="tab np-tab" data-filter="META">Metas</button>
+                    <button class="tab np-tab" data-filter="INVERSION">Inversión</button>
                 </div>
                 <button type="button" id="btn-modo-seleccion" class="np-button np-pill np-pill-sm tx-select-toggle">
                     <span class="material-symbols-outlined">delete_sweep</span> Seleccionar
@@ -151,12 +152,18 @@
                     </div>
                     <form id="form-transaccion" class="tx-form">
                         <input type="hidden" id="t-id">
-                        <div class="tipo-toggle np-inset">
+                        <div class="tipo-toggle np-inset tipo-toggle-4">
                             <button type="button" class="tipo-btn active" data-value="INGRESO">
                                 <span class="material-symbols-outlined tipo-icon">arrow_upward</span> Ingreso
                             </button>
                             <button type="button" class="tipo-btn" data-value="GASTO">
                                 <span class="material-symbols-outlined tipo-icon">arrow_downward</span> Gasto
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="META">
+                                <span class="material-symbols-outlined tipo-icon">track_changes</span> Meta
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="INVERSION">
+                                <span class="material-symbols-outlined tipo-icon">pie_chart</span> Inversión
                             </button>
                         </div>
                         <input type="hidden" id="t-tipo" value="INGRESO">
@@ -169,7 +176,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="t-descripcion-grupo">
                             <label class="np-label-sm">Descripción</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">edit_note</span>
@@ -177,7 +184,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="t-categoria-grupo">
                             <label class="np-label-sm">Categoría</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">sell</span>
@@ -186,7 +193,16 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group hidden" id="t-meta-grupo">
+                            <label class="np-label-sm">Meta</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">track_changes</span>
+                                <div id="t-meta" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="t-dia-grupo">
                             <label class="np-label-sm">Día del mes</label>
                             <div class="np-flat tx-field fecha-dia-wrapper">
                                 <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
@@ -239,6 +255,9 @@
                         </button>
                         <button type="button" id="categorias-modo-gasto" class="tipo-btn" data-value="GASTO">
                             <span class="material-symbols-outlined tipo-icon">arrow_downward</span> Gastos
+                        </button>
+                        <button type="button" id="categorias-modo-inversion" class="tipo-btn" data-value="INVERSION">
+                            <span class="material-symbols-outlined tipo-icon">pie_chart</span> Inversión
                         </button>
                     </div>
 
@@ -676,32 +695,23 @@
                     <p id="modal-abono-nombre" style="color:var(--text-muted);margin-bottom:12px"></p>
                     <form id="form-abono">
                         <input type="hidden" id="abono-meta-id">
+                        <div class="tipo-toggle np-inset">
+                            <button type="button" class="tipo-btn active" data-value="MANUAL">
+                                <span class="material-symbols-outlined tipo-icon">payments</span> Manual
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="AUTOMATICO">
+                                <span class="material-symbols-outlined tipo-icon">sync</span> Automático
+                            </button>
+                        </div>
+                        <input type="hidden" id="abono-modo" value="MANUAL">
                         <div class="form-group">
-                            <label>Monto a abonar</label>
+                            <label id="abono-monto-label">Monto a abonar</label>
                             <input type="number" id="abono-monto" min="0.01" step="0.01" required placeholder="0.00">
                         </div>
+                        <p id="abono-automatico-info" class="hidden" style="color:var(--text-muted);font-size:13px;margin-top:-8px;margin-bottom:12px">Se va a abonar este monto automáticamente todos los meses, como una transacción de tipo "Meta" en Ingresos & Gastos. Podés pausarlo cuando quieras desde el menú de la meta.</p>
                         <div class="modal-actions">
-                            <button type="submit" class="btn btn-primary">Abonar</button>
+                            <button type="submit" id="btn-confirmar-abono" class="btn btn-primary">Abonar</button>
                             <button type="button" id="btn-cancelar-abono" class="btn btn-secondary">Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div id="modal-automatizar" class="modal hidden">
-                <div class="modal-content" style="max-width:380px">
-                    <h2>Automatizar aportes</h2>
-                    <p id="modal-automatizar-nombre" style="color:var(--text-muted);margin-bottom:4px"></p>
-                    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">Se va a abonar este monto automáticamente todos los meses, como una transacción de tipo "Meta" en Ingresos & Gastos. Podés pausarlo cuando quieras.</p>
-                    <form id="form-automatizar">
-                        <input type="hidden" id="automatizar-meta-id">
-                        <div class="form-group">
-                            <label>Monto mensual</label>
-                            <input type="number" id="automatizar-monto" min="0.01" step="0.01" required placeholder="0.00">
-                        </div>
-                        <div class="modal-actions">
-                            <button type="submit" class="btn btn-primary">Automatizar</button>
-                            <button type="button" id="btn-cancelar-automatizar" class="btn btn-secondary">Cancelar</button>
                         </div>
                     </form>
                 </div>

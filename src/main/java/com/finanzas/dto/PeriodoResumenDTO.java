@@ -12,6 +12,7 @@ public class PeriodoResumenDTO {
     private BigDecimal totalIngresos;
     private BigDecimal totalGastos;
     private BigDecimal totalMetas;
+    private BigDecimal totalInversion;
     private BigDecimal balance;
     private List<TransaccionDTO> transacciones;
 
@@ -29,6 +30,8 @@ public class PeriodoResumenDTO {
     public void setTotalGastos(BigDecimal totalGastos) { this.totalGastos = totalGastos; }
     public BigDecimal getTotalMetas() { return totalMetas; }
     public void setTotalMetas(BigDecimal totalMetas) { this.totalMetas = totalMetas; }
+    public BigDecimal getTotalInversion() { return totalInversion; }
+    public void setTotalInversion(BigDecimal totalInversion) { this.totalInversion = totalInversion; }
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
     public List<TransaccionDTO> getTransacciones() { return transacciones; }

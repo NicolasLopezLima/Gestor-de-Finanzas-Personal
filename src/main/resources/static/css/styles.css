@@ -423,6 +423,7 @@ body[data-dark-mode="true"] .summary-item-dark { background: #1E293B; border: 1p
 
 /* "Metas" se destaca con el mismo acento que el resto de la sección Metas, distinto de Gastos */
 .summary-item-meta .s-value { color: var(--primary); }
+.summary-item-inversion .s-value { color: var(--warning); }
 
 /* Period selector */
 .periodo-selector {
@@ -1905,6 +1906,12 @@ body[data-dark-mode="true"] .np-form .form-group select {
 
 .tipo-btn .tipo-icon { font-size: 18px; }
 
+/* Variante con 4 opciones (Ingreso/Gasto/Meta/Inversión) — más angosto, sin lugar para 4
+   etiquetas completas a tamaño normal. */
+.tipo-toggle-4 { gap: 4px; padding: 4px; }
+.tipo-toggle-4 .tipo-btn { padding: 10px 0; font-size: 12px; gap: 4px; }
+.tipo-toggle-4 .tipo-btn .tipo-icon { font-size: 16px; }
+
 .tipo-btn.active {
     background: var(--np-surface);
     box-shadow: inset 3px 3px 6px var(--np-shadow-dark), inset -3px -3px 6px var(--np-shadow-light);
@@ -2666,6 +2673,7 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 .tx-row-monto.income { color: var(--success); }
 .tx-row-monto.expense { color: var(--danger); }
 .tx-row-monto.meta { color: var(--primary); }
+.tx-row-monto.inversion { color: var(--warning); }
 
 /* Transaction / position row icon badge */
 .tx-icon {
@@ -2681,6 +2689,7 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 .tx-icon.success { background: rgba(16,185,129,.12); color: var(--success); }
 .tx-icon.danger  { background: rgba(225,29,72,.12); color: var(--danger); }
 .tx-icon.meta    { background: rgba(15,23,42,.08); color: var(--primary); }
+.tx-icon.inversion { background: rgba(217,119,6,.12); color: var(--warning); }
 .tx-icon .material-symbols-outlined { font-size: 19px; }
 
 /* Hero stat card — balance destacado */

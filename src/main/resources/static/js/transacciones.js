@@ -20,7 +20,7 @@ let conflictosEnModoHistorico = false; // qué handler usa el botón "Confirmar 
 
 // Categorías del usuario, cargadas del servidor (se pueden crear/editar/borrar).
 // categoriasPorTipo: { INGRESO: [{id, nombre, icono}], GASTO: [...] }
-let categoriasPorTipo = { INGRESO: [], GASTO: [] };
+let categoriasPorTipo = { INGRESO: [], GASTO: [], INVERSION: [] };
 let iconoPorCategoria = {}; // "GASTO:Alimentación" -> icono, para el ícono de cada fila
 
 // Íconos disponibles para elegir al crear/editar una categoría
@@ -53,7 +53,7 @@ function labelFrecuencia(frecuencia, intervaloDias) {
 
 async function cargarCategorias() {
     const lista = await api.listarCategorias();
-    categoriasPorTipo = { INGRESO: [], GASTO: [] };
+    categoriasPorTipo = { INGRESO: [], GASTO: [], INVERSION: [] };
     iconoPorCategoria = {};
     lista.forEach(c => {
         categoriasPorTipo[c.tipo].push(c);
@@ -132,7 +132,7 @@ async function initTransacciones() {
             document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById('t-tipo').value = btn.dataset.value;
-            actualizarCategorias(btn.dataset.value);
+            actualizarCamposPorTipo(btn.dataset.value);
         });
     });
 
@@ -174,6 +174,7 @@ async function initTransacciones() {
     });
     document.getElementById('categorias-modo-ingreso').addEventListener('click', () => cambiarTipoModalCategorias('INGRESO'));
     document.getElementById('categorias-modo-gasto').addEventListener('click', () => cambiarTipoModalCategorias('GASTO'));
+    document.getElementById('categorias-modo-inversion').addEventListener('click', () => cambiarTipoModalCategorias('INVERSION'));
     document.getElementById('form-categoria').addEventListener('submit', onGuardarCategoria);
 
     await cargarCategorias();
@@ -195,12 +196,41 @@ function actualizarCategorias(tipo) {
     if (categorias.includes(prev)) document.getElementById('t-categoria').value = prev;
 }
 
+// Una Meta no tiene categoría, descripción libre ni día del mes propios (el abono siempre es "hoy",
+// con descripción autogenerada en el backend) ni soporta "Repetir" desde acá — la automatización
+// de una meta se maneja desde su propia tarjeta en la página de Metas. En cambio, Inversión se
+// comporta igual que Gasto en todo (categorías propias + recurrencia normal).
+async function actualizarCamposPorTipo(tipo) {
+    const esMeta = tipo === 'META';
+    document.getElementById('t-categoria-grupo').classList.toggle('hidden', esMeta);
+    document.getElementById('t-meta-grupo').classList.toggle('hidden', !esMeta);
+    document.getElementById('t-descripcion-grupo').classList.toggle('hidden', esMeta);
+    document.getElementById('t-descripcion').required = !esMeta;
+    document.getElementById('t-dia-grupo').classList.toggle('hidden', esMeta);
+    document.getElementById('t-repetir-grupo').classList.toggle('hidden', esMeta);
+    if (esMeta) {
+        document.getElementById('t-repetir').checked = false;
+        document.getElementById('t-frecuencia-grupo').classList.add('hidden');
+        await cargarMetasParaSelector();
+    } else {
+        actualizarCategorias(tipo);
+    }
+    document.getElementById('tx-submit-btn-label').textContent = esMeta ? 'Abonar a la Meta' : 'Registrar Transacción';
+}
+
+async function cargarMetasParaSelector() {
+    const prev = document.getElementById('t-meta').value;
+    const activas = (await api.listarMetas()).filter(m => m.estado === 'ACTIVA');
+    crearCustomSelect('t-meta', activas.map(m => ({ valor: String(m.id), texto: m.nombre })), '— Seleccionar —');
+    if (activas.some(m => String(m.id) === prev)) document.getElementById('t-meta').value = prev;
+}
+
 // Opciones del filtro por categoría de la lista de transacciones: se limitan al
 // tipo elegido en las tabs (Ingresos/Gastos), o a la unión de ambas con "Todos".
 function actualizarFiltroCategoria() {
     const prev = document.getElementById('filtro-categoria').value;
     const categorias = filtroActivo === 'todos'
-        ? [...new Set([...categoriasPorTipo.INGRESO, ...categoriasPorTipo.GASTO].map(c => c.nombre))]
+        ? [...new Set([...categoriasPorTipo.INGRESO, ...categoriasPorTipo.GASTO, ...categoriasPorTipo.INVERSION].map(c => c.nombre))]
         : (categoriasPorTipo[filtroActivo] || []).map(c => c.nombre);
     crearCustomSelect('filtro-categoria', categorias, 'Todas las categorías');
     filtroCategoria = categorias.includes(prev) ? prev : '';
@@ -221,7 +251,7 @@ function cerrarModalCategorias() {
     // Si el modal de Nueva Transacción sigue abierto detrás, refrescamos su desplegable
     // de categoría por si se creó/editó/borró algo mientras tanto.
     if (!document.getElementById('modal-transaccion').classList.contains('hidden')) {
-        actualizarCategorias(document.getElementById('t-tipo').value);
+        actualizarCamposPorTipo(document.getElementById('t-tipo').value);
     }
     // El filtro de categoría de la lista puede haber quedado con un nombre viejo
     // (renombrado) o inexistente (borrado) — se recalcula y se vuelve a renderizar.
@@ -233,6 +263,7 @@ function cambiarTipoModalCategorias(tipo) {
     categoriaModalTipo = tipo;
     document.getElementById('categorias-modo-ingreso').classList.toggle('active', tipo === 'INGRESO');
     document.getElementById('categorias-modo-gasto').classList.toggle('active', tipo === 'GASTO');
+    document.getElementById('categorias-modo-inversion').classList.toggle('active', tipo === 'INVERSION');
     resetFormCategoria();
     renderListaCategorias(tipo);
 }
@@ -262,7 +293,8 @@ function renderListaCategorias(tipo) {
     const lista = categoriasPorTipo[tipo] || [];
     const cont = document.getElementById('categorias-lista');
     if (lista.length === 0) {
-        cont.innerHTML = `<p class="mapeo-hint">Todavía no hay categorías de ${tipo === 'INGRESO' ? 'ingreso' : 'gasto'}.</p>`;
+        const etiqueta = { INGRESO: 'ingreso', GASTO: 'gasto', INVERSION: 'inversión' }[tipo] || tipo.toLowerCase();
+        cont.innerHTML = `<p class="mapeo-hint">Todavía no hay categorías de ${etiqueta}.</p>`;
         return;
     }
     cont.innerHTML = lista.map(c => `
@@ -331,7 +363,7 @@ async function onEliminarCategoria(id) {
     }
 }
 
-function abrirModalTransaccion(id) {
+async function abrirModalTransaccion(id) {
     if (periodoActual?.cerrado) return;
 
     document.getElementById('form-transaccion').reset();
@@ -372,7 +404,7 @@ function abrirModalTransaccion(id) {
 
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
     document.getElementById('t-tipo').value = tipo;
-    actualizarCategorias(tipo);
+    await actualizarCamposPorTipo(tipo);
     if (t) document.getElementById('t-categoria').value = t.categoria;
 
     document.getElementById('modal-transaccion').classList.remove('hidden');
@@ -468,10 +500,10 @@ function renderPeriodo() {
     // Ingresos, Gastos, Metas y Disponible reflejan solo la plata que YA pasó por el bolsillo
     // hasta hoy — una transacción con fecha futura (recurrente o cargada a mano) no cuenta en
     // ninguno de los cuatro todavía, aunque ya esté generada/cargada en el período.
-    const { ingresos: ingresosHastaHoy, gastos: gastosHastaHoy, metas: metasHastaHoy } = totalesHastaHoy(periodoActual.transacciones);
+    const { ingresos: ingresosHastaHoy, gastos: gastosHastaHoy, metas: metasHastaHoy, inversion: inversionHastaHoy } = totalesHastaHoy(periodoActual.transacciones);
 
-    // Disponible = gasto presupuestado + ingresos hasta hoy - gastos hasta hoy - metas hasta hoy
-    const disponible = gastoPresupuestado + ingresosHastaHoy - gastosHastaHoy - metasHastaHoy;
+    // Disponible = gasto presupuestado + ingresos hasta hoy - gastos hasta hoy - metas hasta hoy - inversión hasta hoy
+    const disponible = gastoPresupuestado + ingresosHastaHoy - gastosHastaHoy - metasHastaHoy - inversionHastaHoy;
 
     const tienePresupuesto = presupuestoMes !== null;
 
@@ -488,6 +520,10 @@ function renderPeriodo() {
         <div class="summary-item summary-item-meta">
             <div class="s-label">Metas</div>
             <div class="s-value">${fmt(metasHastaHoy)}</div>
+        </div>
+        <div class="summary-item summary-item-inversion">
+            <div class="s-label">Inversión</div>
+            <div class="s-value">${fmt(inversionHastaHoy)}</div>
         </div>
         <div class="summary-item summary-item-dark">
             <div class="s-label">Disponible${tienePresupuesto ? ` <small class="disponible-base-info" style="color:rgba(255,255,255,.5);font-weight:400" title="Es el monto que asignaste a Gasto en tu Presupuesto de este mes. Se cuenta como base porque ya está reservado para gastar, aunque todavía no lo hayas usado."><span class="material-symbols-outlined" style="font-size:12px;vertical-align:-1px">info</span> base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
@@ -548,8 +584,9 @@ function renderTabla() {
                 const seleccionada = idsSeleccionados.has(t.id);
                 const pendiente = t.fecha > hoy;
                 const esMeta = t.tipo === 'META';
-                const claseTipo = t.tipo === 'INGRESO' ? 'success' : (esMeta ? 'meta' : 'danger');
-                const iconoFallback = t.tipo === 'INGRESO' ? 'arrow_upward' : (esMeta ? 'track_changes' : 'arrow_downward');
+                const esInversion = t.tipo === 'INVERSION';
+                const claseTipo = t.tipo === 'INGRESO' ? 'success' : esMeta ? 'meta' : esInversion ? 'inversion' : 'danger';
+                const iconoFallback = t.tipo === 'INGRESO' ? 'arrow_upward' : esMeta ? 'track_changes' : esInversion ? 'pie_chart' : 'arrow_downward';
                 return `
                 <div class="tx-row ${modoSeleccion ? 'tx-row-selectable' : ''} ${seleccionada ? 'tx-row-selected' : ''} ${pendiente ? 'tx-row-pendiente' : ''}"
                      ${modoSeleccion ? `onclick="toggleSeleccionTx(${t.id})"` : ''}>
@@ -565,7 +602,7 @@ function renderTabla() {
                         <div class="tx-row-cat">${t.categoria}</div>
                     </div>
                     <div class="tx-row-right">
-                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : (esMeta ? 'meta' : 'expense')}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
+                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : esMeta ? 'meta' : esInversion ? 'inversion' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
                         ${periodoActual.cerrado || modoSeleccion ? '' : `
                             ${esMeta ? '' : `<button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>`}
                             <button class="btn-icon" onclick="eliminarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">delete</span></button>`}
@@ -655,6 +692,24 @@ async function onAgregarTransaccion(e) {
     e.preventDefault();
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
+
+    if (document.getElementById('t-tipo').value === 'META') {
+        const metaId = document.getElementById('t-meta').value;
+        const monto = +document.getElementById('t-monto').value;
+        if (!metaId) { showToast('Seleccioná a qué meta abonar', 'error'); return; }
+        try {
+            await api.abonarMeta(+metaId, monto);
+            periodoActual = await api.getPeriodo(anio, mes);
+            renderPeriodo();
+            document.getElementById('t-monto').value = '';
+            cerrarModalTransaccion();
+            showToast('Abono registrado');
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+        return;
+    }
+
     const dia = +document.getElementById('t-dia').value;
 
     const categoria = document.getElementById('t-categoria').value;
