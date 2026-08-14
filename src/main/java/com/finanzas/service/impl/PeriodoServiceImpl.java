@@ -278,8 +278,18 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setFecha(fecha);
         t.setPeriodo(periodo);
         t.setTransaccionFija(fija);
+        t.setMeta(resolverMetaOpcional(dto.getMetaId()));
 
         return toDTO(transaccionRepo.save(t));
+    }
+
+    // Vincula opcionalmente un Gasto (o cualquier transacción que no sea el abono en sí) a una
+    // Meta, para poder calcular después cuánto de lo aportado a esa meta ya se gastó. A propósito
+    // NO toca montoAcumulado/AbonoMeta acá — eso solo pasa vía registrarAbonoMeta (el abono en sí);
+    // este vínculo es puramente informativo para el cálculo de "gastado"/"disponible".
+    private MetaFinanciera resolverMetaOpcional(Long metaId) {
+        if (metaId == null) return null;
+        return metaRepo.findById(metaId).orElse(null);
     }
 
     @Override
@@ -321,6 +331,12 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setTipo(dto.getTipo());
         t.setCategoria(dto.getCategoria());
         t.setFecha(dto.getFecha());
+        if (t.getTipo() != TipoTransaccion.META) {
+            // El vínculo de una Meta con su propio abono (tipo == META) se maneja aparte, vía
+            // registrarAbonoMeta — acá solo se toca el vínculo "informativo" de un Gasto con la
+            // meta que lo financia.
+            t.setMeta(resolverMetaOpcional(dto.getMetaId()));
+        }
 
         // Si todavía no es recurrente y el usuario tildó "repetir" al editarla, la regla se crea
         // recién ahora, anclada a la fecha actual de la transacción. Si ya es recurrente, este

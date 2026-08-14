@@ -2,6 +2,8 @@ let periodoActual = null;
 let presupuestoMes = null;
 let filtroActivo = 'todos';
 let filtroCategoria = '';
+let filtroFechaDesde = '';
+let filtroFechaHasta = '';
 let modoSeleccion = false;
 let idsSeleccionados = new Set();
 let idsVisibles = []; // ids de las transacciones renderizadas en la última renderTabla(), para "seleccionar todas"
@@ -158,8 +160,53 @@ async function initTransacciones() {
             renderTabla();
         });
     });
+    document.getElementById('btn-tx-tabs-page').addEventListener('click', () => {
+        const enPagina2 = !document.getElementById('tx-tabs-page-2').classList.contains('hidden');
+        mostrarPaginaTabs(enPagina2 ? 1 : 2);
+    });
+    // Panel "Filtros" (Categoría + Rango de fechas): estado propio, no comparte el slot global
+    // customSelectAbierto/cerrarCustomSelects() de utils.js — si lo compartiera, abrir el
+    // desplegable de categoría (que sí usa ese slot) cerraría primero este panel que lo contiene.
+    let panelFiltrosAbierto = false;
+    const btnFiltros = document.getElementById('btn-filtros');
+    const panelFiltros = document.getElementById('panel-filtros');
+    btnFiltros.addEventListener('click', e => {
+        e.stopPropagation();
+        panelFiltrosAbierto = !panelFiltrosAbierto;
+        if (panelFiltrosAbierto) posicionarPanelFlotante(panelFiltros, btnFiltros, true);
+        else panelFiltros.classList.add('hidden');
+    });
+    document.addEventListener('click', e => {
+        if (panelFiltrosAbierto && !panelFiltros.contains(e.target) && !btnFiltros.contains(e.target)) {
+            panelFiltrosAbierto = false;
+            panelFiltros.classList.add('hidden');
+        }
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && panelFiltrosAbierto) {
+            panelFiltrosAbierto = false;
+            panelFiltros.classList.add('hidden');
+        }
+    });
+
     document.getElementById('filtro-categoria').addEventListener('change', () => {
         filtroCategoria = document.getElementById('filtro-categoria').value;
+        renderTabla();
+    });
+    const mesDelPeriodo = () => ({
+        anio: +document.getElementById('periodo-anio').value,
+        mes: +document.getElementById('periodo-mes').value,
+    });
+    crearDatePicker('filtro-fecha-desde', 'Desde', mesDelPeriodo);
+    crearDatePicker('filtro-fecha-hasta', 'Hasta', mesDelPeriodo);
+    document.getElementById('filtro-fecha-desde').addEventListener('change', onCambioFiltroFecha);
+    document.getElementById('filtro-fecha-hasta').addEventListener('change', onCambioFiltroFecha);
+    document.getElementById('btn-limpiar-filtro-fecha').addEventListener('click', () => {
+        filtroFechaDesde = '';
+        filtroFechaHasta = '';
+        document.getElementById('filtro-fecha-desde').value = '';
+        document.getElementById('filtro-fecha-hasta').value = '';
+        document.getElementById('btn-limpiar-filtro-fecha').classList.add('hidden');
         renderTabla();
     });
 
@@ -202,8 +249,10 @@ function actualizarCategorias(tipo) {
 // comporta igual que Gasto en todo (categorías propias + recurrencia normal).
 async function actualizarCamposPorTipo(tipo) {
     const esMeta = tipo === 'META';
+    const esGasto = tipo === 'GASTO';
     document.getElementById('t-categoria-grupo').classList.toggle('hidden', esMeta);
     document.getElementById('t-meta-grupo').classList.toggle('hidden', !esMeta);
+    document.getElementById('t-meta-gasto-grupo').classList.toggle('hidden', !esGasto);
     document.getElementById('t-descripcion-grupo').classList.toggle('hidden', esMeta);
     document.getElementById('t-descripcion').required = !esMeta;
     document.getElementById('t-dia-grupo').classList.toggle('hidden', esMeta);
@@ -215,6 +264,7 @@ async function actualizarCamposPorTipo(tipo) {
     } else {
         actualizarCategorias(tipo);
     }
+    if (esGasto) await cargarMetasParaSelectorGasto();
     document.getElementById('tx-submit-btn-label').textContent = esMeta ? 'Abonar a la Meta' : 'Registrar Transacción';
 }
 
@@ -223,6 +273,16 @@ async function cargarMetasParaSelector() {
     const activas = (await api.listarMetas()).filter(m => m.estado === 'ACTIVA');
     crearCustomSelect('t-meta', activas.map(m => ({ valor: String(m.id), texto: m.nombre })), '— Seleccionar —');
     if (activas.some(m => String(m.id) === prev)) document.getElementById('t-meta').value = prev;
+}
+
+// Vínculo opcional de un Gasto con la meta que lo financia (a diferencia de #t-meta, que es
+// obligatorio y significa "a qué meta estoy abonando") — de acá sale metaId con el mismo campo
+// del DTO, pero el backend nunca lo trata como abono para tipo GASTO.
+async function cargarMetasParaSelectorGasto() {
+    const prev = document.getElementById('t-meta-gasto').value;
+    const activas = (await api.listarMetas()).filter(m => m.estado === 'ACTIVA');
+    crearCustomSelect('t-meta-gasto', activas.map(m => ({ valor: String(m.id), texto: m.nombre })), '— Ninguna —');
+    if (activas.some(m => String(m.id) === prev)) document.getElementById('t-meta-gasto').value = prev;
 }
 
 // Opciones del filtro por categoría de la lista de transacciones: se limitan al
@@ -237,12 +297,39 @@ function actualizarFiltroCategoria() {
     document.getElementById('filtro-categoria').value = filtroCategoria;
 }
 
+function onCambioFiltroFecha() {
+    filtroFechaDesde = document.getElementById('filtro-fecha-desde').value;
+    filtroFechaHasta = document.getElementById('filtro-fecha-hasta').value;
+    // Si cargaron "Hasta" antes que "Desde" (o al revés), se ordenan solas — evita un rango
+    // invertido que no matchearía ninguna fila sin que se entienda por qué.
+    if (filtroFechaDesde && filtroFechaHasta && filtroFechaDesde > filtroFechaHasta) {
+        [filtroFechaDesde, filtroFechaHasta] = [filtroFechaHasta, filtroFechaDesde];
+        document.getElementById('filtro-fecha-desde').value = filtroFechaDesde;
+        document.getElementById('filtro-fecha-hasta').value = filtroFechaHasta;
+    }
+    document.getElementById('btn-limpiar-filtro-fecha').classList.toggle('hidden', !filtroFechaDesde && !filtroFechaHasta);
+    renderTabla();
+}
+
+// Los tabs de tipo van en 2 "páginas" (Todos/Ingresos/Gastos, y Metas/Inversión) con una flecha
+// para pasar de una a otra — así la fila no queda apretada con 5 botones a la vez.
+function mostrarPaginaTabs(pagina) {
+    document.getElementById('tx-tabs-page-1').classList.toggle('hidden', pagina !== 1);
+    document.getElementById('tx-tabs-page-2').classList.toggle('hidden', pagina !== 2);
+    document.getElementById('tx-tabs').classList.toggle('tx-tabs-p2', pagina === 2);
+    document.getElementById('btn-tx-tabs-page').title = pagina === 1 ? 'Ver Metas e Inversión' : 'Ver Todos, Ingresos y Gastos';
+}
+function mostrarPaginaTabsPara(tipo) {
+    mostrarPaginaTabs(tipo === 'META' || tipo === 'INVERSION' ? 2 : 1);
+}
+
 // Llamada desde la vista 3D (Ingreso/Gasto no tienen un "detalle" propio por categoría como Meta
 // o Inversión) — al clickear una burbuja, se cierra la vista y se deja la tabla de abajo filtrada
 // justo en esa categoría, como si el usuario hubiese usado los filtros de siempre a mano.
 function filtrarPorCategoriaYCerrarVista3D(tipo, categoria) {
     filtroActivo = tipo;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filter === tipo));
+    mostrarPaginaTabsPara(tipo);
     actualizarFiltroCategoria();
     filtroCategoria = categoria;
     document.getElementById('filtro-categoria').value = categoria;
@@ -419,7 +506,10 @@ async function abrirModalTransaccion(id) {
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
     document.getElementById('t-tipo').value = tipo;
     await actualizarCamposPorTipo(tipo);
-    if (t) document.getElementById('t-categoria').value = t.categoria;
+    if (t) {
+        document.getElementById('t-categoria').value = t.categoria;
+        if (tipo === 'GASTO' && t.metaId) document.getElementById('t-meta-gasto').value = String(t.metaId);
+    }
 
     document.getElementById('modal-transaccion').classList.remove('hidden');
     document.getElementById('t-descripcion').focus();
@@ -471,6 +561,13 @@ function actualizarMesLabel() {
 async function cargarPeriodo() {
     actualizarMesLabel();
     cancelarModoSeleccion();
+    // Un filtro de fecha de un mes anterior, aplicado sin darse cuenta al mes nuevo, dejaría la
+    // tabla vacía sin ninguna pista de por qué — se resetea al cambiar de período.
+    filtroFechaDesde = '';
+    filtroFechaHasta = '';
+    document.getElementById('filtro-fecha-desde').value = '';
+    document.getElementById('filtro-fecha-hasta').value = '';
+    document.getElementById('btn-limpiar-filtro-fecha').classList.add('hidden');
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
 
@@ -569,15 +666,30 @@ function labelFecha(fechaStr) {
     return fmtDate(fechaStr);
 }
 
+// Cuenta Categoría y Rango de fechas como un filtro cada uno (aunque el rango sean 2 campos) —
+// es lo que el usuario ve como "un filtro" al mirar el panel. filtroActivo (las tabs Todos/
+// Ingresos/Gastos/etc, siempre visibles arriba) queda afuera: no vive dentro de este panel.
+function actualizarBadgeFiltros() {
+    let cantidad = 0;
+    if (filtroCategoria) cantidad++;
+    if (filtroFechaDesde || filtroFechaHasta) cantidad++;
+    const badge = document.getElementById('tx-filtros-badge');
+    badge.textContent = String(cantidad);
+    badge.classList.toggle('hidden', cantidad === 0);
+}
+
 function renderTabla() {
     const cont = document.getElementById('tabla-transacciones');
     if (!periodoActual) { cont.innerHTML = ''; return; }
     let lista = periodoActual.transacciones || [];
     if (filtroActivo !== 'todos') lista = lista.filter(t => t.tipo === filtroActivo);
     if (filtroCategoria) lista = lista.filter(t => t.categoria === filtroCategoria);
+    if (filtroFechaDesde) lista = lista.filter(t => t.fecha >= filtroFechaDesde);
+    if (filtroFechaHasta) lista = lista.filter(t => t.fecha <= filtroFechaHasta);
     idsVisibles = lista.map(t => t.id);
 
-    const hayFiltro = filtroActivo !== 'todos' || filtroCategoria;
+    actualizarBadgeFiltros();
+    const hayFiltro = filtroActivo !== 'todos' || filtroCategoria || filtroFechaDesde || filtroFechaHasta;
     if (lista.length === 0) {
         cont.innerHTML = emptyState({
             icon: '<span class="material-symbols-outlined">receipt_long</span>',
@@ -745,6 +857,10 @@ async function onAgregarTransaccion(e) {
         categoria,
         fecha,
     };
+    if (dto.tipo === 'GASTO') {
+        const metaGastoId = document.getElementById('t-meta-gasto').value;
+        dto.metaId = metaGastoId ? +metaGastoId : null;
+    }
     const id = document.getElementById('t-id').value;
     // El checkbox solo está visible para crear una transacción nueva o para editar una que
     // todavía no es recurrente (ver abrirModalTransaccion) — en ambos casos vale leerlo igual.

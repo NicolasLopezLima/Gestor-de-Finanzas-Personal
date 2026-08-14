@@ -38,7 +38,7 @@ public class Inversion {
     @Column(length = 20)
     private MercadoInversion mercado;
 
-    @Column(precision = 15, scale = 4)
+    @Column(precision = 17, scale = 6)
     private BigDecimal cantidad;
 
     @ManyToOne(fetch = FetchType.LAZY)

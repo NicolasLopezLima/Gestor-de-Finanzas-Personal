@@ -38,10 +38,17 @@ public class CotizacionService {
         return yahooFinanceClient.buscarTickers(query.trim());
     }
 
+    // Bonos/Oro/Otro no traen ticker cotizable en la práctica (los que sí tienen uno propio,
+    // como un ETF de oro físico, entran como FONDO); Acciones y Fondo son los únicos tipos
+    // pensados para tener un ticker de verdad detrás.
+    private boolean tieneCotizacionEnVivo(TipoInversion tipo) {
+        return tipo == TipoInversion.ACCIONES || tipo == TipoInversion.FONDO;
+    }
+
     public List<CotizacionDTO> obtenerCotizaciones(List<Inversion> inversiones) {
         List<CotizacionDTO> resultado = new ArrayList<>();
         for (Inversion inv : inversiones) {
-            if (inv.getTipo() != TipoInversion.ACCIONES) continue;
+            if (!tieneCotizacionEnVivo(inv.getTipo())) continue;
             if (inv.getTicker() == null || inv.getTicker().isBlank() || inv.getMercado() == null) continue;
             resultado.add(construirCotizacion(inv));
         }
@@ -51,9 +58,21 @@ public class CotizacionService {
     // Único lugar que traduce "mercado lógico" -> "cómo lo pide Yahoo". Agregar un mercado
     // nuevo en el futuro solo toca esta función; el resto (ponderación, endpoints, selector de
     // mercados en el frontend) ya generaliza sin cambios.
-    private String sufijoYahoo(MercadoInversion mercado, String ticker) {
+    //
+    // Europa no tiene un sufijo único: un mismo ETF UCITS puede cotizar en Xetra, Stuttgart,
+    // Milán, Londres, etc., cada una con su propio sufijo en Yahoo, y no hay forma de saber de
+    // antemano cuál de ellas tiene datos limpios para un ticker dado (se comprobó a mano: un ETF
+    // de oro físico que en Xetra no devuelve nada resultó tener precio correcto en Stuttgart).
+    // Por eso para Europa se prueban varios candidatos en orden y se usa el primero que responda.
+    private static final List<String> SUFIJOS_EUROPA = List.of(".DE", ".SG", ".MI", ".L", ".AS", ".PA");
+
+    private List<String> candidatosYahoo(MercadoInversion mercado, String ticker) {
         String t = ticker.toUpperCase();
-        return mercado == MercadoInversion.ARGENTINA ? t + ".BA" : t;
+        return switch (mercado) {
+            case ARGENTINA -> List.of(t + ".BA");
+            case EUROPA -> SUFIJOS_EUROPA.stream().map(suf -> t + suf).toList();
+            default -> List.of(t);
+        };
     }
 
     private CotizacionDTO construirCotizacion(Inversion inv) {
@@ -62,8 +81,11 @@ public class CotizacionService {
         dto.setTicker(inv.getTicker());
         dto.setMercado(inv.getMercado().name());
 
-        String yahooTicker = sufijoYahoo(inv.getMercado(), inv.getTicker());
-        Optional<YahooQuote> quote = cache.getOrFetch(yahooTicker, () -> yahooFinanceClient.obtenerCotizacion(yahooTicker));
+        Optional<YahooQuote> quote = Optional.empty();
+        for (String candidato : candidatosYahoo(inv.getMercado(), inv.getTicker())) {
+            quote = cache.getOrFetch(candidato, () -> yahooFinanceClient.obtenerCotizacion(candidato));
+            if (quote.isPresent() && quote.get().precio != null) break;
+        }
         if (quote.isEmpty() || quote.get().precio == null) {
             dto.setDisponible(false);
             dto.setMensaje("Cotización no disponible");
@@ -110,7 +132,7 @@ public class CotizacionService {
 
         List<Inversion> posiciones = new ArrayList<>();
         for (Inversion inv : inversiones) {
-            if (inv.getTipo() != TipoInversion.ACCIONES) continue;
+            if (!tieneCotizacionEnVivo(inv.getTipo())) continue;
             if (inv.getMercado() != mercado) continue;
             if (inv.getTicker() == null || inv.getTicker().isBlank()) continue;
             posiciones.add(inv);
@@ -147,9 +169,12 @@ public class CotizacionService {
         List<Inversion> conDatos = new ArrayList<>();
         List<List<PuntoHistorico>> series = new ArrayList<>();
         for (Inversion inv : posiciones) {
-            String yahooTicker = sufijoYahoo(inv.getMercado(), inv.getTicker());
-            Optional<List<PuntoHistorico>> serie = cache.getOrFetchSerie(yahooTicker, periodo,
-                    () -> yahooFinanceClient.obtenerSerie(yahooTicker, period1, period2, interval));
+            Optional<List<PuntoHistorico>> serie = Optional.empty();
+            for (String candidato : candidatosYahoo(inv.getMercado(), inv.getTicker())) {
+                serie = cache.getOrFetchSerie(candidato, periodo,
+                        () -> yahooFinanceClient.obtenerSerie(candidato, period1, period2, interval));
+                if (serie.isPresent() && serie.get().size() >= 2) break;
+            }
             if (serie.isPresent() && serie.get().size() >= 2) {
                 conDatos.add(inv);
                 series.add(serie.get());

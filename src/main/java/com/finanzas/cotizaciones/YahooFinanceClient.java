@@ -26,10 +26,12 @@ import java.util.Set;
 public class YahooFinanceClient {
 
     // Códigos de bolsa de EE.UU. observados en las respuestas de búsqueda (NASDAQ/NYSE y sus
-    // variantes). Cualquier otro (Xetra, Toronto, Frankfurt, etc.) se descarta: la app solo
-    // soporta EE.UU. y Argentina, mostrar un ticker que después no se puede cotizar es peor
-    // que no mostrarlo.
+    // variantes). Cualquier otro no reconocido (Toronto, Londres, etc.) se descarta: mostrar un
+    // ticker que después no se puede cotizar es peor que no mostrarlo.
     private static final Set<String> BOLSAS_EEUU = Set.of("NMS", "NYQ", "NGM", "NCM", "ASE", "PCX", "BTS");
+    // Xetra/Frankfurt — donde cotizan la mayoría de los ETFs UCITS que se operan desde brokers
+    // como Trade Republic.
+    private static final Set<String> BOLSAS_EUROPA = Set.of("GER", "FRA");
 
     private final RestClient restClient = RestClient.create();
 
@@ -44,16 +46,24 @@ public class YahooFinanceClient {
 
             List<TickerSugeridoDTO> resultado = new ArrayList<>();
             for (YahooSearchQuote q : response.quotes) {
-                if (q.symbol == null || !"EQUITY".equals(q.quoteType)) continue;
+                // ETF además de EQUITY — si no, los fondos (ej. los UCITS de Europa) nunca
+                // aparecerían en las sugerencias de búsqueda.
+                if (q.symbol == null || !("EQUITY".equals(q.quoteType) || "ETF".equals(q.quoteType))) continue;
 
                 TickerSugeridoDTO dto = new TickerSugeridoDTO();
                 if (q.symbol.endsWith(".BA")) {
                     // Se guarda sin el sufijo: CotizacionService ya lo agrega solo al cotizar.
                     dto.setTicker(q.symbol.substring(0, q.symbol.length() - 3));
                     dto.setMercado("ARGENTINA");
+                } else if (q.symbol.endsWith(".DE")) {
+                    dto.setTicker(q.symbol.substring(0, q.symbol.length() - 3));
+                    dto.setMercado("EUROPA");
                 } else if (BOLSAS_EEUU.contains(q.exchange)) {
                     dto.setTicker(q.symbol);
                     dto.setMercado("EEUU");
+                } else if (BOLSAS_EUROPA.contains(q.exchange)) {
+                    dto.setTicker(q.symbol);
+                    dto.setMercado("EUROPA");
                 } else {
                     continue;
                 }

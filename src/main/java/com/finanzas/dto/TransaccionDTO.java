@@ -39,7 +39,11 @@ public class TransaccionDTO {
     private String frecuencia; // nombre de FrecuenciaRecurrencia; null si no es recurrente
     private Integer intervaloDias; // solo tiene valor si frecuencia == "PERSONALIZADA"
 
-    private Long metaId; // solo tiene sentido si tipo == META — a qué meta corresponde el abono
+    // Si tipo == META: a qué meta corresponde el abono (obligatorio, se maneja vía
+    // registrarAbonoMeta, no vía este DTO directamente).
+    // Si tipo == GASTO: vínculo opcional — de qué meta sale la plata de este gasto, para poder
+    // calcular cuánto de lo aportado a esa meta ya está gastado.
+    private Long metaId;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

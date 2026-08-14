@@ -8,6 +8,10 @@ async function initMetas() {
     document.getElementById('form-meta').addEventListener('submit', guardarMeta);
     document.getElementById('btn-cancelar-abono').addEventListener('click', cerrarModalAbono);
     document.getElementById('form-abono').addEventListener('submit', onAbonarMeta);
+    // Sin obtenerMesActual: navegable a cualquier mes — a diferencia del filtro de Ingresos &
+    // Gastos, acá sí tiene sentido cargar un abono de un mes anterior que se haya pasado de
+    // registrar en su momento.
+    crearDatePicker('abono-fecha', 'Elegí una fecha', null);
     document.querySelectorAll('#modal-abono .tipo-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#modal-abono .tipo-btn').forEach(b => b.classList.remove('active'));
@@ -15,6 +19,7 @@ async function initMetas() {
             document.getElementById('abono-modo').value = btn.dataset.value;
             const esAutomatico = btn.dataset.value === 'AUTOMATICO';
             document.getElementById('abono-monto-label').textContent = esAutomatico ? 'Monto mensual' : 'Monto a abonar';
+            document.getElementById('abono-fecha-grupo').classList.toggle('hidden', esAutomatico);
             document.getElementById('abono-automatico-info').classList.toggle('hidden', !esAutomatico);
             document.getElementById('btn-confirmar-abono').textContent = esAutomatico ? 'Automatizar' : 'Abonar';
         });
@@ -149,6 +154,9 @@ function renderMetas() {
                     </div>
                     ${progressBar(m.porcentajeProgreso, completada ? '#fff' : (estadoColor[m.estado] || 'var(--primary)'))}
                 </div>
+                ${Number(m.gastado) > 0 ? `<div class="meta-disponible" style="margin-top:6px;font-size:12.5px;color:${Number(m.disponible) < 0 ? 'var(--danger)' : 'var(--text-muted)'}">
+                    Disponible: ${fmt(m.disponible)}${Number(m.disponible) < 0 ? ' (a cubrir)' : ''}
+                </div>` : ''}
                 <div class="meta-fecha" style="margin-top:10px"><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">calendar_today</span> Vence: ${fmtDate(m.fechaFin)}</div>
                 <div class="meta-montos" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
                     ${activa ? `<button class="np-button-dark np-pill-sm" onclick="abrirModalAbono(${m.id})">Abonar</button>` : '<span></span>'}
@@ -295,6 +303,16 @@ async function abrirModalDetalle(id) {
     document.getElementById('detalle-pct-badge').textContent = `${m.porcentajeProgreso}% completado`;
     document.getElementById('detalle-fecha').textContent = fmtDate(m.fechaFin);
     document.getElementById('detalle-bar-fill').style.width = `${Math.min(m.porcentajeProgreso, 100)}%`;
+
+    const disponibleStat = document.getElementById('detalle-disponible-stat');
+    if (Number(m.gastado) > 0) {
+        disponibleStat.style.display = '';
+        const dispEl = document.getElementById('detalle-disponible');
+        dispEl.textContent = fmt(m.disponible);
+        dispEl.style.color = Number(m.disponible) < 0 ? 'var(--danger)' : '';
+    } else {
+        disponibleStat.style.display = 'none';
+    }
 
     const faltante = Math.max(Number(m.montoObjetivo) - Number(m.montoAcumulado), 0);
     document.getElementById('detalle-faltan').textContent = faltante > 0 ? `Faltan ${fmt(faltante)}` : '¡Completada!';
@@ -462,6 +480,8 @@ function abrirModalAbono(id) {
     document.querySelectorAll('#modal-abono .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'MANUAL'));
     document.getElementById('abono-modo').value = 'MANUAL';
     document.getElementById('abono-monto-label').textContent = 'Monto a abonar';
+    document.getElementById('abono-fecha').value = todayStr();
+    document.getElementById('abono-fecha-grupo').classList.remove('hidden');
     document.getElementById('abono-automatico-info').classList.add('hidden');
     document.getElementById('btn-confirmar-abono').textContent = 'Abonar';
     document.getElementById('modal-abono').classList.remove('hidden');
@@ -482,7 +502,8 @@ async function onAbonarMeta(e) {
             await api.automatizarMeta(id, monto);
             showToast('Abono automático activado');
         } else {
-            await api.abonarMeta(id, monto);
+            const fecha = document.getElementById('abono-fecha').value;
+            await api.abonarMeta(id, monto, fecha);
             showToast('Abono registrado');
         }
         cerrarModalAbono();

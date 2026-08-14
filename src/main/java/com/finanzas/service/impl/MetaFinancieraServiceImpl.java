@@ -118,13 +118,13 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
     }
 
     @Override
-    public MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, Long usuarioId) {
+    public MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, LocalDate fecha, Long usuarioId) {
         MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
         // El abono se registra como una Transaccion real (tipo META) que afecta Disponible y se
         // ve en Ingresos & Gastos — PeriodoService es quien sabe crear transacciones y períodos,
         // y desde ahí actualiza montoAcumulado/estado/AbonoMeta.
-        periodoService.registrarAbonoMeta(meta, monto, LocalDate.now(), usuarioId);
+        periodoService.registrarAbonoMeta(meta, monto, fecha != null ? fecha : LocalDate.now(), usuarioId);
         return toDTO(metaRepo.findByIdAndUsuarioId(id, usuarioId).orElseThrow());
     }
 
@@ -323,6 +323,14 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
             dto.setAutomatizado(true);
             dto.setMontoAutomatico(fija.getMonto());
         });
+
+        // Aportado/Gastado/Disponible — el progreso de arriba ya quedó fijado solo con
+        // montoAcumulado, esto es puramente informativo y no lo vuelve a tocar.
+        BigDecimal aportado = m.getMontoAcumulado();
+        BigDecimal gastado = transaccionRepo.sumGastadoByMetaId(m.getId());
+        dto.setAportado(aportado);
+        dto.setGastado(gastado);
+        dto.setDisponible(aportado.subtract(gastado));
         return dto;
     }
 }

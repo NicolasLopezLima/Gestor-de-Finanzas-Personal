@@ -29,5 +29,13 @@ public class OneTimeSchemaFix {
         // (META no pasa por esta tabla), y con INVERSION sumándose como categoría elegible se
         // pisaría el mismo ENUM nativo.
         jdbcTemplate.execute("ALTER TABLE categorias MODIFY COLUMN tipo VARCHAR(20) NOT NULL");
+        // Mismo problema otra vez: "inversiones.tipo"/"mercado" quedaron como ENUM nativo con los
+        // 4/2 valores originales (ACCIONES/BONOS/ORO/OTRO, EEUU/ARGENTINA) — FONDO y EUROPA
+        // truncarían igual que META truncaba antes en transacciones.
+        jdbcTemplate.execute("ALTER TABLE inversiones MODIFY COLUMN tipo VARCHAR(20) NOT NULL");
+        jdbcTemplate.execute("ALTER TABLE inversiones MODIFY COLUMN mercado VARCHAR(20)");
+        // "cantidad" pasó de 4 a 6 decimales — ddl-auto=update no ensancha la escala de una
+        // columna DECIMAL existente, hay que hacerlo a mano igual que con los ENUM de arriba.
+        jdbcTemplate.execute("ALTER TABLE inversiones MODIFY COLUMN cantidad DECIMAL(17,6)");
     }
 }
