@@ -67,8 +67,11 @@ const api = {
     crearMeta: (dto) => request('POST', '/metas', dto),
     actualizarMeta: (id, dto) => request('PUT', `/metas/${id}`, dto),
     eliminarMeta: (id) => request('DELETE', `/metas/${id}`),
-    abonarMeta: (id, monto) => request('POST', `/metas/${id}/abonar`, { monto }),
+    abonarMeta: (id, monto, fecha) => request('POST', `/metas/${id}/abonar`, { monto, fecha }),
     listarAbonosMeta: (id) => request('GET', `/metas/${id}/abonos`),
+    eliminarAbonoMeta: (metaId, abonoId) => request('DELETE', `/metas/${metaId}/abonos/${abonoId}`),
+    automatizarMeta: (id, monto) => request('POST', `/metas/${id}/automatizar`, { monto }),
+    pausarAutomatizacionMeta: (id) => request('POST', `/metas/${id}/pausar-automatizacion`),
     obtenerRitmoMetas: () => request('GET', '/metas/ritmo'),
 
     // Inversiones
@@ -81,3 +84,7 @@ const api = {
     buscarTickers: (q) => request('GET', `/inversiones/buscar-tickers?q=${encodeURIComponent(q)}`),
     obtenerEvolucion: (mercado, periodo) => request('GET', `/inversiones/evolucion?mercado=${mercado}&periodo=${periodo}`),
 };
+
+// `api` es un `const` de script clásico — no queda expuesto en window por sí solo, y lo necesita
+// metas3d.js (un módulo ES, con su propio scope) para pedir los datos de las metas.
+window.api = api;

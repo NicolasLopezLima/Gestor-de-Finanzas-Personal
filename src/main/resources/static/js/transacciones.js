@@ -2,6 +2,8 @@ let periodoActual = null;
 let presupuestoMes = null;
 let filtroActivo = 'todos';
 let filtroCategoria = '';
+let filtroFechaDesde = '';
+let filtroFechaHasta = '';
 let modoSeleccion = false;
 let idsSeleccionados = new Set();
 let idsVisibles = []; // ids de las transacciones renderizadas en la última renderTabla(), para "seleccionar todas"
@@ -20,7 +22,7 @@ let conflictosEnModoHistorico = false; // qué handler usa el botón "Confirmar 
 
 // Categorías del usuario, cargadas del servidor (se pueden crear/editar/borrar).
 // categoriasPorTipo: { INGRESO: [{id, nombre, icono}], GASTO: [...] }
-let categoriasPorTipo = { INGRESO: [], GASTO: [] };
+let categoriasPorTipo = { INGRESO: [], GASTO: [], INVERSION: [] };
 let iconoPorCategoria = {}; // "GASTO:Alimentación" -> icono, para el ícono de cada fila
 
 // Íconos disponibles para elegir al crear/editar una categoría
@@ -32,9 +34,28 @@ const CATEGORIA_ICONOS_DISPONIBLES = [
     'favorite', 'local_cafe', 'spa',
 ];
 
+const FRECUENCIAS = [
+    { valor: 'SEMANAL', texto: 'Semanal' },
+    { valor: 'QUINCENAL', texto: 'Quincenal' },
+    { valor: 'MENSUAL', texto: 'Mensual' },
+    { valor: 'ANUAL', texto: 'Anual' },
+    { valor: 'PERSONALIZADA', texto: 'Cada N días' },
+];
+
+// Texto del banner "Esta transacción se repite ___" al editar una transacción recurrente.
+function labelFrecuencia(frecuencia, intervaloDias) {
+    switch (frecuencia) {
+        case 'SEMANAL': return 'cada semana';
+        case 'QUINCENAL': return 'cada 15 días';
+        case 'ANUAL': return 'todos los años';
+        case 'PERSONALIZADA': return intervaloDias ? `cada ${intervaloDias} días` : 'periódicamente';
+        default: return 'todos los meses';
+    }
+}
+
 async function cargarCategorias() {
     const lista = await api.listarCategorias();
-    categoriasPorTipo = { INGRESO: [], GASTO: [] };
+    categoriasPorTipo = { INGRESO: [], GASTO: [], INVERSION: [] };
     iconoPorCategoria = {};
     lista.forEach(c => {
         categoriasPorTipo[c.tipo].push(c);
@@ -113,12 +134,21 @@ async function initTransacciones() {
             document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById('t-tipo').value = btn.dataset.value;
-            actualizarCategorias(btn.dataset.value);
+            actualizarCamposPorTipo(btn.dataset.value);
         });
     });
 
     // Día actual por defecto
     document.getElementById('t-dia').value = new Date().getDate();
+
+    crearCustomSelect('t-frecuencia', FRECUENCIAS, null);
+    document.getElementById('t-repetir').addEventListener('change', (e) => {
+        document.getElementById('t-frecuencia-grupo').classList.toggle('hidden', !e.target.checked);
+    });
+    document.getElementById('t-frecuencia').addEventListener('change', () => {
+        const esPersonalizada = document.getElementById('t-frecuencia').value === 'PERSONALIZADA';
+        document.getElementById('t-frecuencia-dias-grupo').classList.toggle('hidden', !esPersonalizada);
+    });
 
     // Tabs filtro (tipo) + desplegable de filtro por categoría
     document.querySelectorAll('.tab').forEach(tab => {
@@ -130,8 +160,53 @@ async function initTransacciones() {
             renderTabla();
         });
     });
+    document.getElementById('btn-tx-tabs-page').addEventListener('click', () => {
+        const enPagina2 = !document.getElementById('tx-tabs-page-2').classList.contains('hidden');
+        mostrarPaginaTabs(enPagina2 ? 1 : 2);
+    });
+    // Panel "Filtros" (Categoría + Rango de fechas): estado propio, no comparte el slot global
+    // customSelectAbierto/cerrarCustomSelects() de utils.js — si lo compartiera, abrir el
+    // desplegable de categoría (que sí usa ese slot) cerraría primero este panel que lo contiene.
+    let panelFiltrosAbierto = false;
+    const btnFiltros = document.getElementById('btn-filtros');
+    const panelFiltros = document.getElementById('panel-filtros');
+    btnFiltros.addEventListener('click', e => {
+        e.stopPropagation();
+        panelFiltrosAbierto = !panelFiltrosAbierto;
+        if (panelFiltrosAbierto) posicionarPanelFlotante(panelFiltros, btnFiltros, true);
+        else panelFiltros.classList.add('hidden');
+    });
+    document.addEventListener('click', e => {
+        if (panelFiltrosAbierto && !panelFiltros.contains(e.target) && !btnFiltros.contains(e.target)) {
+            panelFiltrosAbierto = false;
+            panelFiltros.classList.add('hidden');
+        }
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && panelFiltrosAbierto) {
+            panelFiltrosAbierto = false;
+            panelFiltros.classList.add('hidden');
+        }
+    });
+
     document.getElementById('filtro-categoria').addEventListener('change', () => {
         filtroCategoria = document.getElementById('filtro-categoria').value;
+        renderTabla();
+    });
+    const mesDelPeriodo = () => ({
+        anio: +document.getElementById('periodo-anio').value,
+        mes: +document.getElementById('periodo-mes').value,
+    });
+    crearDatePicker('filtro-fecha-desde', 'Desde', mesDelPeriodo);
+    crearDatePicker('filtro-fecha-hasta', 'Hasta', mesDelPeriodo);
+    document.getElementById('filtro-fecha-desde').addEventListener('change', onCambioFiltroFecha);
+    document.getElementById('filtro-fecha-hasta').addEventListener('change', onCambioFiltroFecha);
+    document.getElementById('btn-limpiar-filtro-fecha').addEventListener('click', () => {
+        filtroFechaDesde = '';
+        filtroFechaHasta = '';
+        document.getElementById('filtro-fecha-desde').value = '';
+        document.getElementById('filtro-fecha-hasta').value = '';
+        document.getElementById('btn-limpiar-filtro-fecha').classList.add('hidden');
         renderTabla();
     });
 
@@ -146,6 +221,7 @@ async function initTransacciones() {
     });
     document.getElementById('categorias-modo-ingreso').addEventListener('click', () => cambiarTipoModalCategorias('INGRESO'));
     document.getElementById('categorias-modo-gasto').addEventListener('click', () => cambiarTipoModalCategorias('GASTO'));
+    document.getElementById('categorias-modo-inversion').addEventListener('click', () => cambiarTipoModalCategorias('INVERSION'));
     document.getElementById('form-categoria').addEventListener('submit', onGuardarCategoria);
 
     await cargarCategorias();
@@ -153,6 +229,7 @@ async function initTransacciones() {
     actualizarFiltroCategoria();
     actualizarMesLabel();
     await cargarPeriodo();
+    programarActualizacionMedianoche();
 }
 
 function actualizarCategorias(tipo) {
@@ -166,17 +243,100 @@ function actualizarCategorias(tipo) {
     if (categorias.includes(prev)) document.getElementById('t-categoria').value = prev;
 }
 
+// Una Meta no tiene categoría, descripción libre ni día del mes propios (el abono siempre es "hoy",
+// con descripción autogenerada en el backend) ni soporta "Repetir" desde acá — la automatización
+// de una meta se maneja desde su propia tarjeta en la página de Metas. En cambio, Inversión se
+// comporta igual que Gasto en todo (categorías propias + recurrencia normal).
+async function actualizarCamposPorTipo(tipo) {
+    const esMeta = tipo === 'META';
+    const esGasto = tipo === 'GASTO';
+    document.getElementById('t-categoria-grupo').classList.toggle('hidden', esMeta);
+    document.getElementById('t-meta-grupo').classList.toggle('hidden', !esMeta);
+    document.getElementById('t-meta-gasto-grupo').classList.toggle('hidden', !esGasto);
+    document.getElementById('t-descripcion-grupo').classList.toggle('hidden', esMeta);
+    document.getElementById('t-descripcion').required = !esMeta;
+    document.getElementById('t-dia-grupo').classList.toggle('hidden', esMeta);
+    document.getElementById('t-repetir-grupo').classList.toggle('hidden', esMeta);
+    if (esMeta) {
+        document.getElementById('t-repetir').checked = false;
+        document.getElementById('t-frecuencia-grupo').classList.add('hidden');
+        await cargarMetasParaSelector();
+    } else {
+        actualizarCategorias(tipo);
+    }
+    if (esGasto) await cargarMetasParaSelectorGasto();
+    document.getElementById('tx-submit-btn-label').textContent = esMeta ? 'Abonar a la Meta' : 'Registrar Transacción';
+}
+
+async function cargarMetasParaSelector() {
+    const prev = document.getElementById('t-meta').value;
+    const activas = (await api.listarMetas()).filter(m => m.estado === 'ACTIVA');
+    crearCustomSelect('t-meta', activas.map(m => ({ valor: String(m.id), texto: m.nombre })), '— Seleccionar —');
+    if (activas.some(m => String(m.id) === prev)) document.getElementById('t-meta').value = prev;
+}
+
+// Vínculo opcional de un Gasto con la meta que lo financia (a diferencia de #t-meta, que es
+// obligatorio y significa "a qué meta estoy abonando") — de acá sale metaId con el mismo campo
+// del DTO, pero el backend nunca lo trata como abono para tipo GASTO.
+async function cargarMetasParaSelectorGasto() {
+    const prev = document.getElementById('t-meta-gasto').value;
+    const activas = (await api.listarMetas()).filter(m => m.estado === 'ACTIVA');
+    crearCustomSelect('t-meta-gasto', activas.map(m => ({ valor: String(m.id), texto: m.nombre })), '— Ninguna —');
+    if (activas.some(m => String(m.id) === prev)) document.getElementById('t-meta-gasto').value = prev;
+}
+
 // Opciones del filtro por categoría de la lista de transacciones: se limitan al
 // tipo elegido en las tabs (Ingresos/Gastos), o a la unión de ambas con "Todos".
 function actualizarFiltroCategoria() {
     const prev = document.getElementById('filtro-categoria').value;
     const categorias = filtroActivo === 'todos'
-        ? [...new Set([...categoriasPorTipo.INGRESO, ...categoriasPorTipo.GASTO].map(c => c.nombre))]
+        ? [...new Set([...categoriasPorTipo.INGRESO, ...categoriasPorTipo.GASTO, ...categoriasPorTipo.INVERSION].map(c => c.nombre))]
         : (categoriasPorTipo[filtroActivo] || []).map(c => c.nombre);
     crearCustomSelect('filtro-categoria', categorias, 'Todas las categorías');
     filtroCategoria = categorias.includes(prev) ? prev : '';
     document.getElementById('filtro-categoria').value = filtroCategoria;
 }
+
+function onCambioFiltroFecha() {
+    filtroFechaDesde = document.getElementById('filtro-fecha-desde').value;
+    filtroFechaHasta = document.getElementById('filtro-fecha-hasta').value;
+    // Si cargaron "Hasta" antes que "Desde" (o al revés), se ordenan solas — evita un rango
+    // invertido que no matchearía ninguna fila sin que se entienda por qué.
+    if (filtroFechaDesde && filtroFechaHasta && filtroFechaDesde > filtroFechaHasta) {
+        [filtroFechaDesde, filtroFechaHasta] = [filtroFechaHasta, filtroFechaDesde];
+        document.getElementById('filtro-fecha-desde').value = filtroFechaDesde;
+        document.getElementById('filtro-fecha-hasta').value = filtroFechaHasta;
+    }
+    document.getElementById('btn-limpiar-filtro-fecha').classList.toggle('hidden', !filtroFechaDesde && !filtroFechaHasta);
+    renderTabla();
+}
+
+// Los tabs de tipo van en 2 "páginas" (Todos/Ingresos/Gastos, y Metas/Inversión) con una flecha
+// para pasar de una a otra — así la fila no queda apretada con 5 botones a la vez.
+function mostrarPaginaTabs(pagina) {
+    document.getElementById('tx-tabs-page-1').classList.toggle('hidden', pagina !== 1);
+    document.getElementById('tx-tabs-page-2').classList.toggle('hidden', pagina !== 2);
+    document.getElementById('tx-tabs').classList.toggle('tx-tabs-p2', pagina === 2);
+    document.getElementById('btn-tx-tabs-page').title = pagina === 1 ? 'Ver Metas e Inversión' : 'Ver Todos, Ingresos y Gastos';
+}
+function mostrarPaginaTabsPara(tipo) {
+    mostrarPaginaTabs(tipo === 'META' || tipo === 'INVERSION' ? 2 : 1);
+}
+
+// Llamada desde la vista 3D (Ingreso/Gasto no tienen un "detalle" propio por categoría como Meta
+// o Inversión) — al clickear una burbuja, se cierra la vista y se deja la tabla de abajo filtrada
+// justo en esa categoría, como si el usuario hubiese usado los filtros de siempre a mano.
+function filtrarPorCategoriaYCerrarVista3D(tipo, categoria) {
+    filtroActivo = tipo;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filter === tipo));
+    mostrarPaginaTabsPara(tipo);
+    actualizarFiltroCategoria();
+    filtroCategoria = categoria;
+    document.getElementById('filtro-categoria').value = categoria;
+    renderTabla();
+    window.cerrarVista3D?.();
+}
+window.filtrarPorCategoriaYCerrarVista3D = filtrarPorCategoriaYCerrarVista3D;
 
 // ── Gestión de categorías (crear/editar/borrar, con ícono propio) ──────────
 
@@ -192,7 +352,7 @@ function cerrarModalCategorias() {
     // Si el modal de Nueva Transacción sigue abierto detrás, refrescamos su desplegable
     // de categoría por si se creó/editó/borró algo mientras tanto.
     if (!document.getElementById('modal-transaccion').classList.contains('hidden')) {
-        actualizarCategorias(document.getElementById('t-tipo').value);
+        actualizarCamposPorTipo(document.getElementById('t-tipo').value);
     }
     // El filtro de categoría de la lista puede haber quedado con un nombre viejo
     // (renombrado) o inexistente (borrado) — se recalcula y se vuelve a renderizar.
@@ -204,6 +364,7 @@ function cambiarTipoModalCategorias(tipo) {
     categoriaModalTipo = tipo;
     document.getElementById('categorias-modo-ingreso').classList.toggle('active', tipo === 'INGRESO');
     document.getElementById('categorias-modo-gasto').classList.toggle('active', tipo === 'GASTO');
+    document.getElementById('categorias-modo-inversion').classList.toggle('active', tipo === 'INVERSION');
     resetFormCategoria();
     renderListaCategorias(tipo);
 }
@@ -233,7 +394,8 @@ function renderListaCategorias(tipo) {
     const lista = categoriasPorTipo[tipo] || [];
     const cont = document.getElementById('categorias-lista');
     if (lista.length === 0) {
-        cont.innerHTML = `<p class="mapeo-hint">Todavía no hay categorías de ${tipo === 'INGRESO' ? 'ingreso' : 'gasto'}.</p>`;
+        const etiqueta = { INGRESO: 'ingreso', GASTO: 'gasto', INVERSION: 'inversión' }[tipo] || tipo.toLowerCase();
+        cont.innerHTML = `<p class="mapeo-hint">Todavía no hay categorías de ${etiqueta}.</p>`;
         return;
     }
     cont.innerHTML = lista.map(c => `
@@ -302,7 +464,7 @@ async function onEliminarCategoria(id) {
     }
 }
 
-function abrirModalTransaccion(id) {
+async function abrirModalTransaccion(id) {
     if (periodoActual?.cerrado) return;
 
     document.getElementById('form-transaccion').reset();
@@ -312,6 +474,11 @@ function abrirModalTransaccion(id) {
     document.getElementById('t-dia').value = new Date().getDate();
     document.getElementById('t-repetir-grupo').classList.remove('hidden');
     document.getElementById('t-fija-info').classList.add('hidden');
+    document.getElementById('t-repetir').checked = false;
+    document.getElementById('t-frecuencia-grupo').classList.add('hidden');
+    document.getElementById('t-frecuencia-dias-grupo').classList.add('hidden');
+    document.getElementById('t-frecuencia').value = 'MENSUAL';
+    document.getElementById('t-frecuencia-dias').value = '';
 
     let tipo = 'INGRESO';
     const t = id ? (periodoActual?.transacciones || []).find(x => x.id === id) : null;
@@ -324,18 +491,25 @@ function abrirModalTransaccion(id) {
         document.getElementById('t-dia').value = +t.fecha.slice(8, 10);
         tipo = t.tipo;
 
-        // No se puede tildar "repetir" al editar (solo se decide al crear)
-        document.getElementById('t-repetir-grupo').classList.add('hidden');
         if (t.transaccionFijaId) {
+            // Ya es recurrente: acá no se cambia la frecuencia, solo se puede cancelarla.
+            document.getElementById('t-repetir-grupo').classList.add('hidden');
             document.getElementById('t-fija-info').classList.remove('hidden');
+            document.getElementById('t-fija-info-texto').textContent =
+                `Esta transacción se repite ${labelFrecuencia(t.frecuencia, t.intervaloDias)}.`;
             document.getElementById('btn-cancelar-recurrencia').onclick = () => cancelarRecurrencia(t.id);
         }
+        // Si todavía no es recurrente, el checkbox "Repetir esta transacción" queda visible
+        // (ya lo dejó así el reset de arriba) para poder convertirla en recurrente desde acá.
     }
 
     document.querySelectorAll('#modal-transaccion .tipo-btn').forEach(b => b.classList.toggle('active', b.dataset.value === tipo));
     document.getElementById('t-tipo').value = tipo;
-    actualizarCategorias(tipo);
-    if (t) document.getElementById('t-categoria').value = t.categoria;
+    await actualizarCamposPorTipo(tipo);
+    if (t) {
+        document.getElementById('t-categoria').value = t.categoria;
+        if (tipo === 'GASTO' && t.metaId) document.getElementById('t-meta-gasto').value = String(t.metaId);
+    }
 
     document.getElementById('modal-transaccion').classList.remove('hidden');
     document.getElementById('t-descripcion').focus();
@@ -365,6 +539,19 @@ function cerrarModalTransaccion() {
     document.getElementById('modal-transaccion').classList.add('hidden');
 }
 
+// Si la pestaña queda abierta de un día para el otro, una transacción "pendiente" (fecha futura)
+// tiene que pasar a verse normal y entrar en Disponible sin que el usuario recargue la página —
+// se reprograma a sí mismo cada vez que dispara, así sigue funcionando noche tras noche.
+function programarActualizacionMedianoche() {
+    const ahora = new Date();
+    const proximaMedianoche = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + 1, 0, 0, 5);
+    const msHastaMedianoche = proximaMedianoche - ahora;
+    setTimeout(() => {
+        renderPeriodo();
+        programarActualizacionMedianoche();
+    }, msHastaMedianoche);
+}
+
 function actualizarMesLabel() {
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
@@ -374,6 +561,13 @@ function actualizarMesLabel() {
 async function cargarPeriodo() {
     actualizarMesLabel();
     cancelarModoSeleccion();
+    // Un filtro de fecha de un mes anterior, aplicado sin darse cuenta al mes nuevo, dejaría la
+    // tabla vacía sin ninguna pista de por qué — se resetea al cambiar de período.
+    filtroFechaDesde = '';
+    filtroFechaHasta = '';
+    document.getElementById('filtro-fecha-desde').value = '';
+    document.getElementById('filtro-fecha-hasta').value = '';
+    document.getElementById('btn-limpiar-filtro-fecha').classList.add('hidden');
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
 
@@ -414,25 +608,36 @@ function renderPeriodo() {
         ?.filter(a => a.tipo === 'GASTO')
         .reduce((sum, a) => sum + Number(a.monto), 0) ?? 0;
 
-    // Disponible = gasto presupuestado + ingresos extra registrados - gastos reales
-    const disponible = gastoPresupuestado
-        + Number(periodoActual.totalIngresos)
-        - Number(periodoActual.totalGastos);
+    // Ingresos, Gastos, Metas y Disponible reflejan solo la plata que YA pasó por el bolsillo
+    // hasta hoy — una transacción con fecha futura (recurrente o cargada a mano) no cuenta en
+    // ninguno de los cuatro todavía, aunque ya esté generada/cargada en el período.
+    const { ingresos: ingresosHastaHoy, gastos: gastosHastaHoy, metas: metasHastaHoy, inversion: inversionHastaHoy } = totalesHastaHoy(periodoActual.transacciones);
+
+    // Disponible = gasto presupuestado + ingresos hasta hoy - gastos hasta hoy - metas hasta hoy - inversión hasta hoy
+    const disponible = gastoPresupuestado + ingresosHastaHoy - gastosHastaHoy - metasHastaHoy - inversionHastaHoy;
 
     const tienePresupuesto = presupuestoMes !== null;
 
     const bar = document.getElementById('summary-bar');
     bar.innerHTML = `
-        <div class="summary-item">
+        <div class="summary-item summary-item-clickable" onclick="window.mostrarVista3D('INGRESO')">
             <div class="s-label">Ingresos</div>
-            <div class="s-value text-success">${fmt(periodoActual.totalIngresos)}</div>
+            <div class="s-value text-success">${fmt(ingresosHastaHoy)}</div>
         </div>
-        <div class="summary-item">
+        <div class="summary-item summary-item-clickable" onclick="window.mostrarVista3D('GASTO')">
             <div class="s-label">Gastos</div>
-            <div class="s-value text-danger">${fmt(periodoActual.totalGastos)}</div>
+            <div class="s-value text-danger">${fmt(gastosHastaHoy)}</div>
+        </div>
+        <div class="summary-item summary-item-meta summary-item-clickable" onclick="window.mostrarVista3D('META')">
+            <div class="s-label">Metas</div>
+            <div class="s-value">${fmt(metasHastaHoy)}</div>
+        </div>
+        <div class="summary-item summary-item-inversion summary-item-clickable" onclick="window.mostrarVista3D('INVERSION')">
+            <div class="s-label">Inversión</div>
+            <div class="s-value">${fmt(inversionHastaHoy)}</div>
         </div>
         <div class="summary-item summary-item-dark">
-            <div class="s-label">Disponible${tienePresupuesto ? ` <small style="color:rgba(255,255,255,.5);font-weight:400">base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
+            <div class="s-label">Disponible${tienePresupuesto ? ` <small class="disponible-base-info" style="color:rgba(255,255,255,.5);font-weight:400" title="Es el monto que asignaste a Gasto en tu Presupuesto de este mes. Se cuenta como base porque ya está reservado para gastar, aunque todavía no lo hayas usado."><span class="material-symbols-outlined" style="font-size:12px;vertical-align:-1px">info</span> base ${fmt(gastoPresupuestado)}</small>` : ''}</div>
             <div class="s-value" style="color:${disponible >= 0 ? '#fff' : 'var(--danger)'}">
                 ${fmt(disponible)}
             </div>
@@ -452,13 +657,25 @@ function agruparPorFecha(lista) {
 }
 
 function labelFecha(fechaStr) {
-    const hoyStr = new Date().toISOString().slice(0, 10);
+    const hoyStr = todayStr();
     const ayer = new Date();
     ayer.setDate(ayer.getDate() - 1);
-    const ayerStr = ayer.toISOString().slice(0, 10);
+    const ayerStr = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, '0')}-${String(ayer.getDate()).padStart(2, '0')}`;
     if (fechaStr === hoyStr) return 'Hoy';
     if (fechaStr === ayerStr) return 'Ayer';
     return fmtDate(fechaStr);
+}
+
+// Cuenta Categoría y Rango de fechas como un filtro cada uno (aunque el rango sean 2 campos) —
+// es lo que el usuario ve como "un filtro" al mirar el panel. filtroActivo (las tabs Todos/
+// Ingresos/Gastos/etc, siempre visibles arriba) queda afuera: no vive dentro de este panel.
+function actualizarBadgeFiltros() {
+    let cantidad = 0;
+    if (filtroCategoria) cantidad++;
+    if (filtroFechaDesde || filtroFechaHasta) cantidad++;
+    const badge = document.getElementById('tx-filtros-badge');
+    badge.textContent = String(cantidad);
+    badge.classList.toggle('hidden', cantidad === 0);
 }
 
 function renderTabla() {
@@ -467,9 +684,12 @@ function renderTabla() {
     let lista = periodoActual.transacciones || [];
     if (filtroActivo !== 'todos') lista = lista.filter(t => t.tipo === filtroActivo);
     if (filtroCategoria) lista = lista.filter(t => t.categoria === filtroCategoria);
+    if (filtroFechaDesde) lista = lista.filter(t => t.fecha >= filtroFechaDesde);
+    if (filtroFechaHasta) lista = lista.filter(t => t.fecha <= filtroFechaHasta);
     idsVisibles = lista.map(t => t.id);
 
-    const hayFiltro = filtroActivo !== 'todos' || filtroCategoria;
+    actualizarBadgeFiltros();
+    const hayFiltro = filtroActivo !== 'todos' || filtroCategoria || filtroFechaDesde || filtroFechaHasta;
     if (lista.length === 0) {
         cont.innerHTML = emptyState({
             icon: '<span class="material-symbols-outlined">receipt_long</span>',
@@ -481,30 +701,36 @@ function renderTabla() {
         return;
     }
 
+    const hoy = todayStr();
     const grupos = agruparPorFecha(lista);
     cont.innerHTML = grupos.map(([fecha, items]) => `
         <div class="tx-group">
             <div class="tx-group-label">${labelFecha(fecha)}</div>
             ${items.map(t => {
                 const seleccionada = idsSeleccionados.has(t.id);
+                const pendiente = t.fecha > hoy;
+                const esMeta = t.tipo === 'META';
+                const esInversion = t.tipo === 'INVERSION';
+                const claseTipo = t.tipo === 'INGRESO' ? 'success' : esMeta ? 'meta' : esInversion ? 'inversion' : 'danger';
+                const iconoFallback = t.tipo === 'INGRESO' ? 'arrow_upward' : esMeta ? 'track_changes' : esInversion ? 'pie_chart' : 'arrow_downward';
                 return `
-                <div class="tx-row ${modoSeleccion ? 'tx-row-selectable' : ''} ${seleccionada ? 'tx-row-selected' : ''}"
+                <div class="tx-row ${modoSeleccion ? 'tx-row-selectable' : ''} ${seleccionada ? 'tx-row-selected' : ''} ${pendiente ? 'tx-row-pendiente' : ''}"
                      ${modoSeleccion ? `onclick="toggleSeleccionTx(${t.id})"` : ''}>
                     ${modoSeleccion ? `
                         <span class="tx-checkbox-circle">
                             <span class="material-symbols-outlined">${seleccionada ? 'check_circle' : 'radio_button_unchecked'}</span>
                         </span>` : ''}
-                    <span class="tx-icon ${t.tipo === 'INGRESO' ? 'success' : 'danger'}">
-                        <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || (t.tipo === 'INGRESO' ? 'arrow_upward' : 'arrow_downward')}</span>
+                    <span class="tx-icon ${claseTipo}">
+                        <span class="material-symbols-outlined">${iconoDeCategoria(t.tipo, t.categoria) || iconoFallback}</span>
                     </span>
                     <div class="tx-row-info">
-                        <div class="tx-row-desc">${t.descripcion}${t.transaccionFijaId ? ' <span class="material-symbols-outlined tx-fija-badge" title="Se repite todos los meses">sync</span>' : ''}</div>
+                        <div class="tx-row-desc">${t.descripcion}${t.transaccionFijaId ? ` <span class="material-symbols-outlined tx-fija-badge" title="Se repite ${labelFrecuencia(t.frecuencia, t.intervaloDias)}">sync</span>` : ''}${pendiente ? ' <span class="material-symbols-outlined tx-row-pendiente-badge" title="Todavía no llegó esta fecha">schedule</span>' : ''}</div>
                         <div class="tx-row-cat">${t.categoria}</div>
                     </div>
                     <div class="tx-row-right">
-                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
+                        <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : esMeta ? 'meta' : esInversion ? 'inversion' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
                         ${periodoActual.cerrado || modoSeleccion ? '' : `
-                            <button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>
+                            ${esMeta ? '' : `<button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>`}
                             <button class="btn-icon" onclick="eliminarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">delete</span></button>`}
                     </div>
                 </div>`;
@@ -592,6 +818,24 @@ async function onAgregarTransaccion(e) {
     e.preventDefault();
     const anio = +document.getElementById('periodo-anio').value;
     const mes = +document.getElementById('periodo-mes').value;
+
+    if (document.getElementById('t-tipo').value === 'META') {
+        const metaId = document.getElementById('t-meta').value;
+        const monto = +document.getElementById('t-monto').value;
+        if (!metaId) { showToast('Seleccioná a qué meta abonar', 'error'); return; }
+        try {
+            await api.abonarMeta(+metaId, monto);
+            periodoActual = await api.getPeriodo(anio, mes);
+            renderPeriodo();
+            document.getElementById('t-monto').value = '';
+            cerrarModalTransaccion();
+            showToast('Abono registrado');
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+        return;
+    }
+
     const dia = +document.getElementById('t-dia').value;
 
     const categoria = document.getElementById('t-categoria').value;
@@ -613,8 +857,25 @@ async function onAgregarTransaccion(e) {
         categoria,
         fecha,
     };
+    if (dto.tipo === 'GASTO') {
+        const metaGastoId = document.getElementById('t-meta-gasto').value;
+        dto.metaId = metaGastoId ? +metaGastoId : null;
+    }
     const id = document.getElementById('t-id').value;
-    if (!id) dto.repetirTodosLosMeses = document.getElementById('t-repetir').checked;
+    // El checkbox solo está visible para crear una transacción nueva o para editar una que
+    // todavía no es recurrente (ver abrirModalTransaccion) — en ambos casos vale leerlo igual.
+    dto.repetirTodosLosMeses = document.getElementById('t-repetir').checked;
+    if (dto.repetirTodosLosMeses) {
+        dto.frecuencia = document.getElementById('t-frecuencia').value;
+        if (dto.frecuencia === 'PERSONALIZADA') {
+            const intervalo = +document.getElementById('t-frecuencia-dias').value;
+            if (!intervalo || intervalo < 1) {
+                showToast('Indicá cada cuántos días se repite', 'error');
+                return;
+            }
+            dto.intervaloDias = intervalo;
+        }
+    }
     try {
         if (id) {
             await api.editarTransaccion(+id, dto);

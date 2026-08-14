@@ -412,13 +412,27 @@ tr:hover td { background: var(--primary-light) !important; }
 .summary-item .s-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; font-family: var(--font-mono); }
 .summary-item .s-value { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; font-family: var(--font-mono); }
 
+.summary-item-clickable {
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.summary-item-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 16px var(--np-shadow-dark), -8px -8px 16px var(--np-shadow-light);
+}
+
 /* El "Disponible" se destaca como la tarjeta oscura, igual que el balance del Dashboard */
 .summary-item-dark {
     background: var(--primary);
     box-shadow: 6px 6px 16px rgba(0,0,0,.25), -4px -4px 16px rgba(255,255,255,.04);
 }
 .summary-item-dark .s-label { color: rgba(255,255,255,.6); }
+.disponible-base-info { cursor: help; }
 body[data-dark-mode="true"] .summary-item-dark { background: #1E293B; border: 1px solid #29344a; }
+
+/* "Metas" se destaca con el mismo acento que el resto de la sección Metas, distinto de Gastos */
+.summary-item-meta .s-value { color: var(--primary); }
+.summary-item-inversion .s-value { color: var(--warning); }
 
 /* Period selector */
 .periodo-selector {
@@ -641,6 +655,20 @@ body[data-dark-mode="true"] .summary-item-dark { background: #1E293B; border: 1p
 }
 
 .meta-card-pct { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+
+.meta-auto-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+}
+.meta-auto-badge .material-symbols-outlined { font-size: 14px; }
 
 .meta-card-body { padding: 18px 20px; }
 
@@ -1010,10 +1038,18 @@ body[data-dark-mode="true"] .np-form .form-group select {
 .inv-ranking-item {
     display: flex;
     justify-content: space-between;
+    gap: 8px;
     font-size: 13px;
     font-family: var(--font-mono);
     padding: 4px 0;
 }
+.inv-ranking-item span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.inv-ranking-item span:last-child { flex-shrink: 0; }
 
 /* Fila superior de Inversiones: gráfico de evolución (más chico, izquierda) + donut y
    rebalanceo apilados (derecha) */
@@ -1161,11 +1197,33 @@ body[data-dark-mode="true"] .np-form .form-group select {
 
 .inv-pos-cotizacion-na { font-style: italic; }
 
+/* Lista expandible de aportes individuales dentro de una posición agrupada */
+.inv-pos-lotes {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.inv-pos-lotes.hidden { display: none; }
+
+.inv-lote-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+.inv-lote-fecha { color: var(--text); }
+.inv-lote-cantidad { font-family: var(--font-mono); text-align: right; }
+.inv-lote-monto { font-family: var(--font-mono); font-weight: 600; color: var(--text); text-align: right; }
+
 /* Filtro por categoría: vive en la toolbar de import/export, pegado a la derecha */
 .tx-filtro-categoria {
     padding: 9px 16px;
-    flex: 0 0 180px;
-    margin-left: auto;
+    width: 100%;
 }
 
 .tx-filtro-categoria .custom-select-value {
@@ -1173,6 +1231,60 @@ body[data-dark-mode="true"] .np-form .form-group select {
     overflow: hidden;
     text-overflow: ellipsis;
     display: block;
+}
+
+.tx-filtro-fecha {
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tx-filtro-fecha .custom-date {
+    width: 78px;
+    flex-shrink: 0;
+}
+.tx-filtro-fecha .custom-date .custom-select-value {
+    font-size: 13px;
+    font-weight: 600;
+}
+.tx-filtro-fecha-separador { color: var(--text-muted); font-size: 12px; }
+.tx-filtro-fecha #btn-limpiar-filtro-fecha { margin-left: 2px; }
+
+/* Botón único "Filtros" (Categoría + Rango de fechas combinados en un panel, en vez de 2 pills
+   sueltas compitiendo por lugar en la toolbar). */
+.tx-filtros-wrap { position: relative; margin-left: auto; }
+
+.tx-filtros-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.tx-filtros-panel {
+    width: 288px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.tx-filtros-grupo { display: flex; flex-direction: column; gap: 6px; }
+
+.tx-filtros-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--np-text-muted);
 }
 
 /* Filter tabs (neumorphic segmented control) */
@@ -1774,6 +1886,8 @@ body[data-dark-mode="true"] .np-form .form-group select {
     align-items: center;
     justify-content: center;
     z-index: 200;
+    padding: 24px 16px;
+    overflow-y: auto;
 }
 
 .modal.hidden { display: none; }
@@ -1785,6 +1899,8 @@ body[data-dark-mode="true"] .np-form .form-group select {
     padding: 28px;
     width: 100%;
     max-width: 440px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0,0,0,.2);
 }
 
@@ -1887,6 +2003,12 @@ body[data-dark-mode="true"] .np-form .form-group select {
 
 .tipo-btn .tipo-icon { font-size: 18px; }
 
+/* Variante con 4 opciones (Ingreso/Gasto/Meta/Inversión) — más angosto, sin lugar para 4
+   etiquetas completas a tamaño normal. */
+.tipo-toggle-4 { gap: 4px; padding: 4px; }
+.tipo-toggle-4 .tipo-btn { padding: 10px 0; font-size: 12px; gap: 4px; }
+.tipo-toggle-4 .tipo-btn .tipo-icon { font-size: 16px; }
+
 .tipo-btn.active {
     background: var(--np-surface);
     box-shadow: inset 3px 3px 6px var(--np-shadow-dark), inset -3px -3px 6px var(--np-shadow-light);
@@ -1927,6 +2049,10 @@ body[data-dark-mode="true"] .np-form .form-group select {
 
 /* Custom select (reemplaza el <select> nativo donde el popup del navegador no sirve) */
 .custom-select { position: relative; width: 100%; }
+/* Mismo trato por defecto — .tx-filtro-fecha .custom-date (más específica) lo angosta a 78px
+   solo para el combo compartido "Desde"/"Hasta"; en cualquier otro lugar (ej. un campo de fecha
+   solo, como "Agregar inversión") ocupa todo el ancho como cualquier otro campo del formulario. */
+.custom-date { position: relative; width: 100%; }
 
 .custom-select-trigger {
     display: block;
@@ -1977,6 +2103,94 @@ body[data-dark-mode="true"] .np-form .form-group select {
     font-weight: 600;
 }
 .custom-select-option-extra .material-symbols-outlined { font-size: 18px; }
+
+/* Date picker propio (reemplaza el popup nativo de <input type="date">) — mismo panel flotante
+   neumórfico que .custom-select-panel, con una grilla de días en vez de una lista de opciones. */
+.date-picker-panel {
+    width: 232px;
+    padding: 12px;
+}
+
+/* Sin flechas: el date-picker de un filtro acotado a un período ya cargado (Ingresos & Gastos)
+   no navega — el label de mes va solo, centrado, como referencia. Con flechas: el de un campo de
+   fecha libre (ej. "Agregar inversión"), donde sí hace falta poder ir a cualquier mes. */
+.date-picker-mes {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--np-text-strong);
+    text-transform: capitalize;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.date-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.date-picker-header .date-picker-mes { margin-bottom: 0; }
+
+.date-picker-nav {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--np-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+.date-picker-nav:hover { background: var(--primary-light); color: var(--np-text-strong); }
+.date-picker-nav .material-symbols-outlined { font-size: 18px; }
+
+.date-picker-weekdays,
+.date-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+.date-picker-weekdays {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--np-text-muted);
+    margin-bottom: 4px;
+}
+.date-picker-grid { gap: 2px; }
+
+.date-picker-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: 12.5px;
+    color: var(--text);
+    cursor: pointer;
+}
+.date-picker-day:hover { background: var(--primary-light); }
+.date-picker-day.today { font-weight: 700; color: var(--primary); }
+.date-picker-day.active { background: var(--primary); color: #fff; font-weight: 700; }
+.date-picker-day-empty { cursor: default; }
+.date-picker-day-empty:hover { background: none; }
+
+.date-picker-clear {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    border: none;
+    border-top: 1px solid var(--border);
+    background: transparent;
+    color: var(--danger);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.date-picker-clear:hover { background: rgba(225,29,72,.08); }
 
 .inv-ticker-sugerencia-meta {
     display: block;
@@ -2515,9 +2729,14 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 /* Asistente de mapeo de columnas */
 .mapeo-intro { color: var(--text-muted); font-size: 13px; margin: 4px 0 16px; }
 .mapeo-recordar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); margin: 10px 0 16px; }
+.mapeo-recordar.hidden { display: none; }
 
 /* Transacciones fijas (recurrentes) */
 .tx-fija-badge { font-size: 14px !important; vertical-align: -3px; color: var(--text-muted); margin-left: 4px; }
+
+/* Transacción con fecha futura: todavía no "pasó" de verdad, no cuenta en Disponible. */
+.tx-row.tx-row-pendiente { opacity: .5; }
+.tx-row-pendiente-badge { font-size: 14px !important; vertical-align: -3px; color: var(--text-muted); margin-left: 4px; }
 
 .tx-fija-info {
     display: flex;
@@ -2530,6 +2749,7 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
     padding: 10px 14px;
     margin: 4px 0 16px;
 }
+.tx-fija-info.hidden { display: none; }
 .tx-fija-info .material-symbols-outlined { font-size: 18px; flex-shrink: 0; }
 .tx-fija-info button {
     margin-left: auto;
@@ -2599,7 +2819,55 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
     gap: 10px;
     margin-bottom: 16px;
 }
-.tx-tabs-row .np-tabs { flex: 1; margin-bottom: 0; }
+.tx-tabs-row .np-tabs {
+    flex: 1;
+    margin-bottom: 0;
+    position: relative;
+    padding-right: 40px;
+    transition: padding-left .3s ease, padding-right .3s ease;
+}
+/* Página 2 (Metas/Inversión): la flecha pasa a ocupar el lado izquierdo, así que el hueco
+   reservado para ella también cruza de derecha a izquierda. */
+.tx-tabs-row .np-tabs.tx-tabs-p2 {
+    padding-right: 4px;
+    padding-left: 40px;
+}
+
+/* "display: contents" saca al div del layout — sus botones pasan a ser flex-items directos de
+   .np-tabs, del mismo tamaño que "Todos" (que si no, quedaba el doble de ancho: sin esto, un
+   flex:1 en este div competía por espacio con "Todos" como si fuera un solo ítem, y sus dos
+   botones internos se repartían la mitad de ESE espacio en vez de un tercio del total). */
+.np-tabs-page { display: contents; }
+/* Empate de especificidad con .np-tabs-page (ambas 0,1,0): sin este selector combinado, cuál
+   gana depende del orden en la hoja de estilos en vez de la intención. */
+.np-tabs-page.hidden { display: none; }
+
+/* Posicionada absoluta (no como hermano flex más) para poder animar su cruce de un extremo al
+   otro con `left` — reordenar vía flex `order` no interpola de forma continua entre navegadores. */
+.np-tab-arrow {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: calc(100% - 34px - 4px);
+    width: 34px;
+    border: none;
+    border-radius: 50%;
+    background: var(--np-surface);
+    box-shadow: 4px 4px 8px var(--np-shadow-dark), -4px -4px 8px var(--np-shadow-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--np-text-muted);
+    cursor: pointer;
+    transition: left .3s ease, color .2s ease;
+}
+.tx-tabs-row .np-tabs.tx-tabs-p2 .np-tab-arrow { left: 4px; }
+.np-tab-arrow:hover { color: var(--np-text-strong); }
+.np-tab-arrow:active {
+    box-shadow: inset 2px 2px 5px var(--np-shadow-dark), inset -2px -2px 5px var(--np-shadow-light);
+}
+.np-tab-arrow .material-symbols-outlined { font-size: 20px; transition: transform .3s ease; }
+.tx-tabs-row .np-tabs.tx-tabs-p2 .np-tab-arrow .material-symbols-outlined { transform: rotate(180deg); }
 
 /* Estilo "danger" desde el vamos (no solo al activarse): así se entiende de un vistazo que
    este botón lleva a poder borrar transacciones, no es un filtro/orden más de la lista. */
@@ -2641,6 +2909,8 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 .tx-row-monto { font-weight: 700; font-family: var(--font-mono); font-size: 14px; }
 .tx-row-monto.income { color: var(--success); }
 .tx-row-monto.expense { color: var(--danger); }
+.tx-row-monto.meta { color: var(--primary); }
+.tx-row-monto.inversion { color: var(--warning); }
 
 /* Transaction / position row icon badge */
 .tx-icon {
@@ -2655,6 +2925,8 @@ body[data-dark-mode="true"] .dash-balance-hero { background: #1E293B; border: 1p
 }
 .tx-icon.success { background: rgba(16,185,129,.12); color: var(--success); }
 .tx-icon.danger  { background: rgba(225,29,72,.12); color: var(--danger); }
+.tx-icon.meta    { background: rgba(15,23,42,.08); color: var(--primary); }
+.tx-icon.inversion { background: rgba(217,119,6,.12); color: var(--warning); }
 .tx-icon .material-symbols-outlined { font-size: 19px; }
 
 /* Hero stat card — balance destacado */
@@ -2851,3 +3123,218 @@ body[data-dark-mode="true"] .stat-card-hero .value { color: #fff; }
     .stat-card-hero { grid-column: span 1; }
     .content { padding: 68px 12px 88px; }
 }
+
+/* ── Vista 3D inmersiva: bubble chart neumórfico (Ingresos/Gastos/Metas/Inversión) ── */
+/* A propósito con valores fijos de modo claro (no `var(--np-*)`) — esta vista siempre se ve
+   clara con neumorfismo, sin importar si el resto de la app está en modo oscuro. */
+#vista3d-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: #eef1f6;
+    overflow-y: auto;
+    padding: 32px 40px 60px;
+}
+#vista3d-overlay.hidden { display: none; }
+
+.vista3d-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+#btn-volver-dashboard-3d {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 99px;
+    background: #f8f9ff;
+    color: #0b1c30;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 6px 6px 14px rgba(15,23,42,.08), -6px -6px 14px #ffffff;
+    transition: box-shadow .2s ease, transform .15s ease;
+}
+#btn-volver-dashboard-3d:hover { transform: translateY(-1px); box-shadow: 8px 8px 16px rgba(15,23,42,.1), -8px -8px 16px #ffffff; }
+
+#vista3d-titulo {
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.vista3d-toggle {
+    display: inline-flex;
+    gap: 4px;
+    background: rgba(15,23,42,.05);
+    border-radius: 12px;
+    padding: 4px;
+}
+.vista3d-toggle button {
+    border: none;
+    background: transparent;
+    color: #64748B;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 9px;
+    cursor: pointer;
+}
+.vista3d-toggle button.active { background: #0F172A; color: #fff; font-weight: 700; }
+
+.vista3d-total-strip {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.vista3d-total-card {
+    background: #0F172A;
+    border-radius: 20px;
+    padding: 16px 32px;
+    color: #fff;
+    box-shadow: 10px 10px 24px rgba(15,23,42,.2);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    max-width: 92vw;
+}
+.vista3d-total-label {
+    font-size: 10px;
+    color: rgba(255,255,255,.5);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-family: var(--font-mono);
+}
+.vista3d-total-monto {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 22px;
+}
+.vista3d-total-divisor { width: 1px; height: 32px; background: rgba(255,255,255,.15); flex-shrink: 0; }
+.vista3d-total-texto {
+    font-size: 12.5px;
+    color: rgba(255,255,255,.6);
+    max-width: 260px;
+    line-height: 1.4;
+}
+@media (max-width: 640px) {
+    .vista3d-total-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .vista3d-total-divisor { display: none; }
+}
+
+#vista3d-bubble-field {
+    position: relative;
+    height: min(58vh, 560px);
+    min-height: 320px;
+    max-width: 920px;
+    margin: 0 auto;
+}
+
+.vista3d-bubble {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 50%;
+    background: #F8FAFC;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+}
+.vista3d-bubble-glow {
+    position: absolute;
+    border-radius: 50%;
+    opacity: .13;
+    pointer-events: none;
+}
+.vista3d-bubble-content { text-align: center; position: relative; pointer-events: none; }
+.vista3d-bubble-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+.vista3d-bubble-icon .material-symbols-outlined { line-height: 1; }
+.vista3d-bubble-nombre { font-weight: 700; color: #0F172A; white-space: nowrap; }
+.vista3d-bubble-monto { font-family: var(--font-mono); font-weight: 800; }
+.vista3d-bubble-pct { color: #64748B; }
+
+#vista3d-hint {
+    text-align: center;
+    font-size: 12.5px;
+    color: #94A3B8;
+    margin-top: 8px;
+}
+@media (max-width: 640px) {
+    #vista3d-hint { display: none; }
+}
+
+#vista3d-empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 340px;
+    text-align: center;
+    color: #64748B;
+    font-size: 14px;
+    line-height: 1.5;
+}
+#vista3d-empty.hidden { display: none; }
+
+#btn-nueva-3d {
+    position: fixed;
+    right: 40px;
+    bottom: 36px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #10B981;
+    color: #0F172A;
+    border: none;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 14px 28px rgba(16,185,129,.35);
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+#btn-nueva-3d:hover { transform: scale(1.06); }
+
+/* ── Gráficos de TradingView (Inversiones) ───────────────────────────────── */
+.inv-graficos-header { margin-bottom: 12px; }
+.inv-graficos-hint { font-size: 13px; color: var(--text-muted); }
+
+.tv-chart-container {
+    width: 100%;
+    height: 560px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--np-surface);
+    box-shadow: 6px 6px 12px var(--np-shadow-dark), -6px -6px 12px var(--np-shadow-light);
+}
+@media (max-width: 640px) {
+    .tv-chart-container { height: 420px; }
+}
+
+.tv-modal-content {
+    width: 92vw;
+    max-width: 900px;
+    height: 80vh;
+    max-height: 640px;
+    display: flex;
+    flex-direction: column;
+}
+.tv-modal-content .tv-chart-container { flex: 1; height: auto; }

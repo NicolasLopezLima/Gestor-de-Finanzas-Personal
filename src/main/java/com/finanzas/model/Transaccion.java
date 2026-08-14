@@ -36,6 +36,11 @@ public class Transaccion {
     @JoinColumn(name = "transaccion_fija_id", nullable = true)
     private TransaccionFija transaccionFija;
 
+    // Solo se completa cuando tipo == META: identifica a qué meta corresponde este abono.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "meta_id", nullable = true)
+    private MetaFinanciera meta;
+
     public Transaccion() {}
 
     public Long getId() { return id; }
@@ -53,4 +58,6 @@ public class Transaccion {
     public void setPeriodo(PeriodoMensual periodo) { this.periodo = periodo; }
     public TransaccionFija getTransaccionFija() { return transaccionFija; }
     public void setTransaccionFija(TransaccionFija transaccionFija) { this.transaccionFija = transaccionFija; }
+    public MetaFinanciera getMeta() { return meta; }
+    public void setMeta(MetaFinanciera meta) { this.meta = meta; }
 }

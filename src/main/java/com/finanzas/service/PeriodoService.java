@@ -8,8 +8,10 @@ import com.finanzas.dto.PeriodoResumenDTO;
 import com.finanzas.dto.SeleccionHojaDTO;
 import com.finanzas.dto.SeleccionMapeoDTO;
 import com.finanzas.dto.TransaccionDTO;
+import com.finanzas.model.MetaFinanciera;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface PeriodoService {
@@ -18,6 +20,14 @@ public interface PeriodoService {
     TransaccionDTO editarTransaccion(Long transaccionId, TransaccionDTO dto, Long usuarioId);
     void eliminarTransaccion(Long transaccionId, Long usuarioId);
     void cancelarRecurrencia(Long transaccionId, Long usuarioId);
+
+    /**
+     * Registra un abono a una meta como una Transaccion real de tipo META en el período de
+     * "fecha" (afecta Disponible, se ve en Ingresos & Gastos), y actualiza el progreso de la meta
+     * (montoAcumulado/estado/AbonoMeta). Única vía por la que se crea una transacción de tipo
+     * META — no se expone como tipo elegible en el alta genérica de transacciones.
+     */
+    void registrarAbonoMeta(MetaFinanciera meta, BigDecimal monto, LocalDate fecha, Long usuarioId);
     PeriodoResumenDTO cerrarPeriodo(int anio, int mes, Long usuarioId);
     byte[] generarExportacionHistorica(Long usuarioId);
     ImportacionResponseDTO importarTransacciones(int anio, int mes, InputStream excel, String nombreArchivo, Long usuarioId);

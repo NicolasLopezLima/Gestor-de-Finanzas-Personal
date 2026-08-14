@@ -17,14 +17,19 @@ import com.finanzas.excel.ColumnMapping;
 import com.finanzas.excel.ImportParseResult;
 import com.finanzas.excel.TransaccionExcelService;
 import com.finanzas.exception.ImportValidationException;
+import com.finanzas.model.AbonoMeta;
+import com.finanzas.model.EstadoMeta;
 import com.finanzas.model.MapeoImportacion;
+import com.finanzas.model.MetaFinanciera;
 import com.finanzas.model.ModoImporte;
 import com.finanzas.model.PeriodoMensual;
 import com.finanzas.model.TipoTransaccion;
 import com.finanzas.model.Transaccion;
 import com.finanzas.model.TransaccionFija;
 import com.finanzas.model.Usuario;
+import com.finanzas.repository.AbonoMetaRepository;
 import com.finanzas.repository.MapeoImportacionRepository;
+import com.finanzas.repository.MetaFinancieraRepository;
 import com.finanzas.repository.PeriodoMensualRepository;
 import com.finanzas.repository.TransaccionFijaRepository;
 import com.finanzas.repository.TransaccionRepository;
@@ -38,8 +43,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import com.finanzas.model.FrecuenciaRecurrencia;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -59,19 +67,25 @@ public class PeriodoServiceImpl implements PeriodoService {
     private final TransaccionExcelService excelService;
     private final MapeoImportacionRepository mapeoRepo;
     private final TransaccionFijaRepository transaccionFijaRepo;
+    private final MetaFinancieraRepository metaRepo;
+    private final AbonoMetaRepository abonoRepo;
 
     public PeriodoServiceImpl(PeriodoMensualRepository periodoRepo,
                               TransaccionRepository transaccionRepo,
                               UsuarioRepository usuarioRepo,
                               TransaccionExcelService excelService,
                               MapeoImportacionRepository mapeoRepo,
-                              TransaccionFijaRepository transaccionFijaRepo) {
+                              TransaccionFijaRepository transaccionFijaRepo,
+                              MetaFinancieraRepository metaRepo,
+                              AbonoMetaRepository abonoRepo) {
         this.periodoRepo = periodoRepo;
         this.transaccionRepo = transaccionRepo;
         this.usuarioRepo = usuarioRepo;
         this.excelService = excelService;
         this.mapeoRepo = mapeoRepo;
         this.transaccionFijaRepo = transaccionFijaRepo;
+        this.metaRepo = metaRepo;
+        this.abonoRepo = abonoRepo;
     }
 
     @Override
@@ -98,32 +112,132 @@ public class PeriodoServiceImpl implements PeriodoService {
         return periodo;
     }
 
-    /** Genera, si hace falta, la transacción de este período para cada fija activa del usuario. */
+    /**
+     * Genera, si hace falta, las transacciones de este período para cada fija activa del usuario.
+     * Una fija puede caer varias veces en el mismo mes (ej. semanal/quincenal/personalizada), así
+     * que la dedupe es por (fijaId, fecha) — no alcanza con "ya existe una instancia de esta fija".
+     */
     private void generarFijasPendientes(PeriodoMensual periodo, Long usuarioId) {
         List<TransaccionFija> fijas = transaccionFijaRepo.findByUsuarioIdAndActivaTrue(usuarioId);
         if (fijas.isEmpty()) return;
 
+        LocalDate inicioPeriodo = LocalDate.of(periodo.getAnio(), periodo.getMes(), 1);
+        LocalDate finPeriodo = inicioPeriodo.withDayOfMonth(inicioPeriodo.lengthOfMonth());
         List<Transaccion> existentes = transaccionRepo.findByPeriodoId(periodo.getId());
-        int diasEnMes = YearMonth.of(periodo.getAnio(), periodo.getMes()).lengthOfMonth();
 
         for (TransaccionFija fija : fijas) {
-            boolean esAnteriorAInicio = periodo.getAnio() < fija.getAnioInicio()
-                    || (periodo.getAnio() == fija.getAnioInicio() && periodo.getMes() < fija.getMesInicio());
-            if (esAnteriorAInicio) continue;
+            for (LocalDate fecha : calcularOcurrencias(fija, inicioPeriodo, finPeriodo)) {
+                boolean yaExiste = existentes.stream().anyMatch(t ->
+                        t.getTransaccionFija() != null && t.getTransaccionFija().getId().equals(fija.getId())
+                        && t.getFecha().equals(fecha));
+                if (yaExiste) continue;
 
-            boolean yaGenerada = existentes.stream()
-                    .anyMatch(t -> t.getTransaccionFija() != null && t.getTransaccionFija().getId().equals(fija.getId()));
-            if (yaGenerada) continue;
+                Transaccion t = new Transaccion();
+                t.setDescripcion(fija.getDescripcion());
+                t.setMonto(fija.getMonto());
+                t.setTipo(fija.getTipo());
+                t.setCategoria(fija.getCategoria());
+                t.setFecha(fecha);
+                t.setPeriodo(periodo);
+                t.setTransaccionFija(fija);
+                boolean esAbonoMeta = fija.getTipo() == TipoTransaccion.META && fija.getMeta() != null;
+                if (esAbonoMeta) t.setMeta(fija.getMeta());
+                transaccionRepo.save(t);
+                if (esAbonoMeta) aplicarAbonoDesdeTransaccion(fija.getMeta(), fija.getMonto(), t);
+            }
+        }
+    }
 
-            Transaccion t = new Transaccion();
-            t.setDescripcion(fija.getDescripcion());
-            t.setMonto(fija.getMonto());
-            t.setTipo(fija.getTipo());
-            t.setCategoria(fija.getCategoria());
-            t.setFecha(LocalDate.of(periodo.getAnio(), periodo.getMes(), Math.min(fija.getDia(), diasEnMes)));
-            t.setPeriodo(periodo);
-            t.setTransaccionFija(fija);
-            transaccionRepo.save(t);
+    /** Suma el abono a la meta (montoAcumulado + estado) y registra el AbonoMeta vinculado a "t". */
+    private void aplicarAbonoDesdeTransaccion(MetaFinanciera meta, BigDecimal monto, Transaccion t) {
+        meta.setMontoAcumulado(meta.getMontoAcumulado().add(monto));
+        if (meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) >= 0) {
+            meta.setEstado(EstadoMeta.COMPLETADA);
+        }
+        metaRepo.save(meta);
+        AbonoMeta abono = new AbonoMeta();
+        abono.setMeta(meta);
+        abono.setMonto(monto);
+        abono.setFecha(LocalDateTime.now());
+        abono.setTransaccion(t);
+        abonoRepo.save(abono);
+    }
+
+    /**
+     * Deshace el efecto de una transacción de tipo META sobre la meta (si la transacción tiene un
+     * abono vinculado) — resta el monto, vuelve a ACTIVA si ya no llega al objetivo, y borra el
+     * AbonoMeta. No hace nada si la transacción no es de tipo META.
+     */
+    private void revertirAbonoDeTransaccion(Transaccion t) {
+        if (t.getMeta() == null) return;
+        abonoRepo.findByTransaccionId(t.getId()).ifPresent(abono -> {
+            MetaFinanciera meta = abono.getMeta();
+            meta.setMontoAcumulado(meta.getMontoAcumulado().subtract(abono.getMonto()).max(BigDecimal.ZERO));
+            if (meta.getEstado() == EstadoMeta.COMPLETADA && meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) < 0) {
+                meta.setEstado(EstadoMeta.ACTIVA);
+            }
+            metaRepo.save(meta);
+            abonoRepo.delete(abono);
+        });
+    }
+
+    @Override
+    public void registrarAbonoMeta(MetaFinanciera meta, BigDecimal monto, LocalDate fecha, Long usuarioId) {
+        PeriodoMensual periodo = obtenerOCrearPeriodo(fecha.getYear(), fecha.getMonthValue(), usuarioId);
+        if (periodo.isCerrado()) {
+            throw new IllegalStateException("El período de " + fecha.getMonthValue() + "/" + fecha.getYear() + " está cerrado, no se puede registrar el abono.");
+        }
+        Transaccion t = new Transaccion();
+        t.setDescripcion("Abono a " + meta.getNombre());
+        t.setMonto(monto);
+        t.setTipo(TipoTransaccion.META);
+        t.setCategoria(meta.getNombre());
+        t.setFecha(fecha);
+        t.setPeriodo(periodo);
+        t.setMeta(meta);
+        transaccionRepo.save(t);
+        aplicarAbonoDesdeTransaccion(meta, monto, t);
+    }
+
+    /** Todas las fechas en que "fija" cae dentro de [desde, hasta] (inclusive), según su frecuencia. */
+    private List<LocalDate> calcularOcurrencias(TransaccionFija fija, LocalDate desde, LocalDate hasta) {
+        LocalDate inicio = fija.getFechaInicioEfectiva();
+        if (inicio.isAfter(hasta)) return List.of();
+
+        List<LocalDate> ocurrencias = new ArrayList<>();
+        switch (fija.getFrecuenciaEfectiva()) {
+            case SEMANAL -> agregarPorPaso(ocurrencias, inicio, desde, hasta, 7);
+            case QUINCENAL -> agregarPorPaso(ocurrencias, inicio, desde, hasta, 14);
+            case PERSONALIZADA -> agregarPorPaso(ocurrencias, inicio, desde, hasta,
+                    Math.max(1, fija.getIntervaloDias() != null ? fija.getIntervaloDias() : 1));
+            case ANUAL -> {
+                for (int anio = Math.max(inicio.getYear(), desde.getYear()); anio <= hasta.getYear(); anio++) {
+                    int diasEnMes = YearMonth.of(anio, inicio.getMonthValue()).lengthOfMonth();
+                    LocalDate fecha = LocalDate.of(anio, inicio.getMonthValue(), Math.min(inicio.getDayOfMonth(), diasEnMes));
+                    if (!fecha.isBefore(inicio) && !fecha.isBefore(desde) && !fecha.isAfter(hasta)) ocurrencias.add(fecha);
+                }
+            }
+            case MENSUAL -> {
+                YearMonth ymFin = YearMonth.from(hasta);
+                YearMonth ym = YearMonth.from(inicio).isBefore(YearMonth.from(desde)) ? YearMonth.from(desde) : YearMonth.from(inicio);
+                while (!ym.isAfter(ymFin)) {
+                    LocalDate fecha = ym.atDay(Math.min(inicio.getDayOfMonth(), ym.lengthOfMonth()));
+                    if (!fecha.isBefore(inicio) && !fecha.isBefore(desde) && !fecha.isAfter(hasta)) ocurrencias.add(fecha);
+                    ym = ym.plusMonths(1);
+                }
+            }
+        }
+        return ocurrencias;
+    }
+
+    /** Junta, en "out", las fechas inicio + k*pasoDias que caen dentro de [desde, hasta]. */
+    private void agregarPorPaso(List<LocalDate> out, LocalDate inicio, LocalDate desde, LocalDate hasta, int pasoDias) {
+        long diasDesdeInicio = ChronoUnit.DAYS.between(inicio, desde);
+        long k = diasDesdeInicio <= 0 ? 0 : (diasDesdeInicio + pasoDias - 1) / pasoDias; // división entera hacia arriba
+        LocalDate fecha = inicio.plusDays(k * pasoDias);
+        while (!fecha.isAfter(hasta)) {
+            if (!fecha.isBefore(desde)) out.add(fecha);
+            fecha = fecha.plusDays(pasoDias);
         }
     }
 
@@ -149,6 +263,9 @@ public class PeriodoServiceImpl implements PeriodoService {
             fija.setDia(fecha.getDayOfMonth());
             fija.setAnioInicio(anio);
             fija.setMesInicio(mes);
+            fija.setFechaInicio(fecha);
+            fija.setFrecuencia(dto.getFrecuencia() != null ? FrecuenciaRecurrencia.valueOf(dto.getFrecuencia()) : FrecuenciaRecurrencia.MENSUAL);
+            fija.setIntervaloDias(dto.getIntervaloDias());
             fija.setUsuario(usuario);
             fija = transaccionFijaRepo.save(fija);
         }
@@ -161,8 +278,18 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setFecha(fecha);
         t.setPeriodo(periodo);
         t.setTransaccionFija(fija);
+        t.setMeta(resolverMetaOpcional(dto.getMetaId()));
 
         return toDTO(transaccionRepo.save(t));
+    }
+
+    // Vincula opcionalmente un Gasto (o cualquier transacción que no sea el abono en sí) a una
+    // Meta, para poder calcular después cuánto de lo aportado a esa meta ya se gastó. A propósito
+    // NO toca montoAcumulado/AbonoMeta acá — eso solo pasa vía registrarAbonoMeta (el abono en sí);
+    // este vínculo es puramente informativo para el cálculo de "gastado"/"disponible".
+    private MetaFinanciera resolverMetaOpcional(Long metaId) {
+        if (metaId == null) return null;
+        return metaRepo.findById(metaId).orElse(null);
     }
 
     @Override
@@ -204,6 +331,35 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setTipo(dto.getTipo());
         t.setCategoria(dto.getCategoria());
         t.setFecha(dto.getFecha());
+        if (t.getTipo() != TipoTransaccion.META) {
+            // El vínculo de una Meta con su propio abono (tipo == META) se maneja aparte, vía
+            // registrarAbonoMeta — acá solo se toca el vínculo "informativo" de un Gasto con la
+            // meta que lo financia.
+            t.setMeta(resolverMetaOpcional(dto.getMetaId()));
+        }
+
+        // Si todavía no es recurrente y el usuario tildó "repetir" al editarla, la regla se crea
+        // recién ahora, anclada a la fecha actual de la transacción. Si ya es recurrente, este
+        // flag se ignora — cambiar la frecuencia de una regla existente no es parte de este flujo,
+        // para eso está "Dejar de repetir" + crear una nueva.
+        if (t.getTransaccionFija() == null && dto.isRepetirTodosLosMeses()) {
+            Usuario usuario = usuarioRepo.findById(usuarioId)
+                    .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
+            TransaccionFija fija = new TransaccionFija();
+            fija.setDescripcion(t.getDescripcion());
+            fija.setMonto(t.getMonto());
+            fija.setTipo(t.getTipo());
+            fija.setCategoria(t.getCategoria());
+            fija.setDia(t.getFecha().getDayOfMonth());
+            fija.setAnioInicio(t.getFecha().getYear());
+            fija.setMesInicio(t.getFecha().getMonthValue());
+            fija.setFechaInicio(t.getFecha());
+            fija.setFrecuencia(dto.getFrecuencia() != null ? FrecuenciaRecurrencia.valueOf(dto.getFrecuencia()) : FrecuenciaRecurrencia.MENSUAL);
+            fija.setIntervaloDias(dto.getIntervaloDias());
+            fija.setUsuario(usuario);
+            t.setTransaccionFija(transaccionFijaRepo.save(fija));
+        }
+
         return toDTO(transaccionRepo.save(t));
     }
 
@@ -217,6 +373,7 @@ public class PeriodoServiceImpl implements PeriodoService {
         if (t.getPeriodo().isCerrado()) {
             throw new IllegalStateException("No se puede eliminar una transaccion de un periodo cerrado.");
         }
+        revertirAbonoDeTransaccion(t);
         transaccionRepo.delete(t);
     }
 
@@ -241,6 +398,16 @@ public class PeriodoServiceImpl implements PeriodoService {
                 .map(Transaccion::getMonto)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal metas = transacciones.stream()
+                .filter(t -> t.getTipo() == TipoTransaccion.META)
+                .map(Transaccion::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal inversion = transacciones.stream()
+                .filter(t -> t.getTipo() == TipoTransaccion.INVERSION)
+                .map(Transaccion::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         PeriodoResumenDTO dto = new PeriodoResumenDTO();
         dto.setId(periodo.getId());
         dto.setAnio(periodo.getAnio());
@@ -248,7 +415,12 @@ public class PeriodoServiceImpl implements PeriodoService {
         dto.setCerrado(periodo.isCerrado());
         dto.setTotalIngresos(ingresos);
         dto.setTotalGastos(gastos);
-        dto.setBalance(ingresos.subtract(gastos));
+        dto.setTotalMetas(metas);
+        dto.setTotalInversion(inversion);
+        // Todo lo que salió de verdad se resta del balance, sin importar la sub-categoría — un
+        // abono a una meta o un aporte a una inversión son tan reales como un gasto, solo que se
+        // muestran en su propia tarjeta.
+        dto.setBalance(ingresos.subtract(gastos).subtract(metas).subtract(inversion));
         dto.setTransacciones(transacciones.stream().map(this::toDTO).collect(Collectors.toList()));
         return dto;
     }
@@ -262,7 +434,13 @@ public class PeriodoServiceImpl implements PeriodoService {
         dto.setCategoria(t.getCategoria());
         dto.setFecha(t.getFecha());
         dto.setPeriodoId(t.getPeriodo().getId());
-        dto.setTransaccionFijaId(t.getTransaccionFija() != null ? t.getTransaccionFija().getId() : null);
+        TransaccionFija fija = t.getTransaccionFija();
+        dto.setTransaccionFijaId(fija != null ? fija.getId() : null);
+        if (fija != null) {
+            dto.setFrecuencia(fija.getFrecuenciaEfectiva().name());
+            dto.setIntervaloDias(fija.getIntervaloDias());
+        }
+        dto.setMetaId(t.getMeta() != null ? t.getMeta().getId() : null);
         return dto;
     }
 

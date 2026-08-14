@@ -17,6 +17,11 @@ async function initInversiones() {
         evolucionMercado = document.getElementById('inv-evolucion-mercado').value;
         cargarEvolucion();
     });
+    document.getElementById('btn-graficos-inv').addEventListener('click', toggleGraficosGenerales);
+    document.getElementById('btn-cerrar-tv-chart').addEventListener('click', cerrarModalGraficoPosicion);
+    document.getElementById('modal-tv-chart').addEventListener('click', e => {
+        if (e.target === document.getElementById('modal-tv-chart')) cerrarModalGraficoPosicion();
+    });
 
     // Auto-refresh de cotizaciones cada 60s (mismo TTL que el cache del backend), pero
     // solo mientras esta pantalla está realmente activa — no hay hook de "salida de
@@ -36,8 +41,89 @@ function toggleInvFilterMenu(e) {
     document.getElementById('inv-filter-menu').classList.toggle('hidden');
 }
 
-const TIPO_LABELS = { ACCIONES: 'Acciones', BONOS: 'Bonos', ORO: 'Oro', OTRO: 'Otro' };
-const MERCADO_LABELS = { EEUU: 'EE.UU. (NYSE/NASDAQ)', ARGENTINA: 'Argentina (BYMA)' };
+// ── Gráficos de TradingView (solo visual — no toca las cotizaciones que ya trae Yahoo Finance) ──
+
+// El ticker se guarda "pelado" (ej. GGAL), igual que lo usa YahooFinanceClient (que le agrega
+// ".BA" para Argentina) — acá el equivalente es prefijar la plaza de TradingView (BCBA para
+// Argentina). Para EE.UU. el ticker solo (sin NASDAQ:/NYSE:) ya lo resuelve bien TradingView.
+function simboloTradingView(inv) {
+    return inv.mercado === 'ARGENTINA' ? `BCBA:${inv.ticker}` : inv.ticker;
+}
+
+function temaTradingView() {
+    return document.body.getAttribute('data-dark-mode') === 'true' ? 'dark' : 'light';
+}
+
+// Lee las variables de tema del propio body — ahí (no en :root) es donde
+// body[data-dark-mode="true"] las pisa, así el gráfico sigue el modo claro/oscuro actual.
+function colorVarInv(nombre, fallback) {
+    const v = getComputedStyle(document.body).getPropertyValue(nombre).trim();
+    return v || fallback;
+}
+
+function crearWidgetTV(containerId, symbol, allowSymbolChange) {
+    document.getElementById(containerId).innerHTML = '';
+    const fondo = colorVarInv('--np-surface', '#f8f9ff');
+    const texto = colorVarInv('--text-muted', '#64748B');
+    const borde = colorVarInv('--border', '#E2E8F0');
+    const success = colorVarInv('--success', '#10B981');
+    const danger = colorVarInv('--danger', '#E11D48');
+
+    new TradingView.widget({
+        autosize: true,
+        symbol: symbol || 'NASDAQ:AAPL',
+        interval: 'D',
+        timezone: 'America/Argentina/Buenos_Aires',
+        theme: temaTradingView(),
+        style: '1',
+        locale: 'es',
+        enable_publishing: false,
+        allow_symbol_change: allowSymbolChange,
+        hide_side_toolbar: true,
+        container_id: containerId,
+        toolbar_bg: fondo,
+        // Mismos colores de suba/baja y grilla que ya usa el resto de la app (--success/--danger),
+        // en vez de los verdes/rojos default de TradingView.
+        overrides: {
+            'paneProperties.background': fondo,
+            'paneProperties.backgroundType': 'solid',
+            'paneProperties.vertGridProperties.color': borde,
+            'paneProperties.horzGridProperties.color': borde,
+            'scalesProperties.textColor': texto,
+            'mainSeriesProperties.candleStyle.upColor': success,
+            'mainSeriesProperties.candleStyle.downColor': danger,
+            'mainSeriesProperties.candleStyle.borderUpColor': success,
+            'mainSeriesProperties.candleStyle.borderDownColor': danger,
+            'mainSeriesProperties.candleStyle.wickUpColor': success,
+            'mainSeriesProperties.candleStyle.wickDownColor': danger,
+        },
+    });
+}
+
+function toggleGraficosGenerales() {
+    const seccion = document.getElementById('inv-graficos-section');
+    const abriendo = seccion.classList.contains('hidden');
+    seccion.classList.toggle('hidden', !abriendo);
+    document.getElementById('inv-cartera-contenido').classList.toggle('hidden', abriendo);
+    document.getElementById('btn-nueva-inversion').classList.toggle('hidden', abriendo);
+    if (abriendo) crearWidgetTV('tv-search-container', 'NASDAQ:AAPL', true);
+}
+
+function abrirGraficoPosicion(id) {
+    const inv = inversiones.find(x => x.id === id);
+    if (!inv || !inv.ticker) return;
+    document.getElementById('modal-tv-chart-title').textContent = `${inv.nombre} · ${inv.ticker}`;
+    document.getElementById('modal-tv-chart').classList.remove('hidden');
+    crearWidgetTV('tv-position-container', simboloTradingView(inv), false);
+}
+
+function cerrarModalGraficoPosicion() {
+    document.getElementById('modal-tv-chart').classList.add('hidden');
+    document.getElementById('tv-position-container').innerHTML = '';
+}
+
+const TIPO_LABELS = { ACCIONES: 'Acciones', FONDO: 'Fondo', BONOS: 'Bonos', ORO: 'Oro', OTRO: 'Otro' };
+const MERCADO_LABELS = { EEUU: 'EE.UU. (NYSE/NASDAQ)', ARGENTINA: 'Argentina (BYMA)', EUROPA: 'Europa (Xetra)' };
 
 function seleccionarFiltroInv(tipo) {
     filtroInvActivo = tipo;
@@ -136,9 +222,9 @@ function renderRebalanceCard() {
     }
 
     let peor = null;
-    inversiones.forEach(inv => {
-        const d = calcularDesviacion(inv, total);
-        if (!peor || Math.abs(d.desv) > Math.abs(peor.desv)) peor = { inv, ...d };
+    agruparInversiones(inversiones).forEach(g => {
+        const d = calcularDesviacion(g, total);
+        if (!peor || Math.abs(d.desv) > Math.abs(peor.desv)) peor = { g, ...d };
     });
 
     if (!peor || Math.abs(peor.desv) < 3) {
@@ -160,7 +246,7 @@ function renderRebalanceCard() {
             <span class="inv-rebalance-tag">${signo}${peor.desv.toFixed(1)}%</span>
         </div>
         <p>
-            <strong>${peor.inv.nombre}</strong> (${peor.inv.tipo}) representa el ${peor.actual.toFixed(1)}% de tu cartera,
+            <strong>${peor.g.nombre}</strong> (${peor.g.tipo}) representa el ${peor.actual.toFixed(1)}% de tu cartera,
             contra un objetivo del ${peor.objetivo.toFixed(1)}%. Considerá ${accion} esta posición para volver a tu meta de asignación.
         </p>`;
 }
@@ -190,33 +276,48 @@ function renderPosiciones() {
         return;
     }
 
-    cont.innerHTML = lista.map(inv => {
-        const { actual, objetivo, desv } = calcularDesviacion(inv, total);
+    const grupos = agruparInversiones(lista);
+    gruposPosicionesActuales = Object.fromEntries(grupos.map(g => [g.key, g]));
+
+    cont.innerHTML = grupos.map(g => {
+        const { actual, objetivo, desv } = calcularDesviacion(g, total);
         const enObjetivo = Math.abs(desv) < 0.5;
         const desvLabel = enObjetivo ? 'En objetivo' : `${desv > 0 ? '+' : ''}${desv.toFixed(1)}% (${desv > 0 ? 'Excedido' : 'Por debajo'})`;
-        const color = TIPO_COLORS[inv.tipo] || '#64748B';
-        const cotizacionHtml = renderCotizacionBlock(cotizacionesPorId[inv.id]);
+        const color = TIPO_COLORS[g.tipo] || '#64748B';
+        const cotizacionHtml = renderCotizacionBlock(agruparCotizacion(g.lotes));
+        const multiplesAportes = g.lotes.length > 1;
+        const subtitulo = multiplesAportes
+            ? `${g.lotes.length} aportes${g.precioPromedio != null ? ` · precio prom. ${fmtMoneda(g.precioPromedio, g.mercado)}` : ''}`
+            : (g.lotes[0].notas || TIPO_LABELS[g.tipo]);
         return `
         <div class="np-flat inv-pos-card">
             <div class="inv-pos-top">
                 <div class="inv-pos-left">
                     <span class="inv-pos-icon" style="background:${color}22;color:${color}">
-                        <span class="material-symbols-outlined">${TIPO_ICONS[inv.tipo] || 'category'}</span>
+                        <span class="material-symbols-outlined">${TIPO_ICONS[g.tipo] || 'category'}</span>
                     </span>
                     <div>
-                        <h4>${inv.nombre}</h4>
-                        <p>${inv.notas ? inv.notas : inv.tipo}</p>
+                        <h4>${g.nombre}</h4>
+                        <p>${subtitulo}</p>
                     </div>
                 </div>
                 <div class="inv-pos-right">
-                    <div class="inv-pos-monto">${fmt(inv.montoInvertido)}</div>
+                    <div class="inv-pos-monto">${fmt(g.montoInvertido)}</div>
                     <div class="inv-pos-actions">
-                        <button class="btn-icon inv-icon-btn" title="Editar" onclick="abrirModalInv(${inv.id})">
+                        ${g.ticker ? `<button class="btn-icon inv-icon-btn" title="Ver gráfico" onclick="abrirGraficoPosicion(${g.lotes[0].id})">
+                            <span class="material-symbols-outlined">show_chart</span>
+                        </button>` : ''}
+                        <button class="btn-icon inv-icon-btn" title="Agregar aporte" onclick="abrirModalInvNuevoAporte('${g.key}')">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                        ${multiplesAportes ? `<button class="btn-icon inv-icon-btn" title="Ver aportes" onclick="toggleLotesInv('${g.key}')">
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </button>` : `<button class="btn-icon inv-icon-btn" title="Editar" onclick="abrirModalInv(${g.lotes[0].id})">
                             <span class="material-symbols-outlined">edit</span>
                         </button>
-                        <button class="btn-icon inv-icon-btn" title="Eliminar" onclick="eliminarInversion(${inv.id})">
+                        <button class="btn-icon inv-icon-btn" title="Eliminar" onclick="eliminarInversion(${g.lotes[0].id})">
                             <span class="material-symbols-outlined">delete</span>
-                        </button>
+                        </button>`}
                     </div>
                 </div>
             </div>
@@ -232,13 +333,97 @@ function renderPosiciones() {
                 <span>ACTUAL: ${actual.toFixed(1)}%</span>
             </div>
             ${cotizacionHtml}
+            ${multiplesAportes ? `<div class="inv-pos-lotes hidden" id="lotes-${g.key}">
+                ${g.lotes.map(l => `
+                <div class="inv-lote-row">
+                    <span class="inv-lote-fecha">${fmtDate(l.fechaRegistro)}</span>
+                    <span class="inv-lote-cantidad">${l.cantidad != null ? Number(l.cantidad).toFixed(4) : '—'}</span>
+                    <span class="inv-lote-monto">${fmt(l.montoInvertido)}</span>
+                    <button class="btn-icon inv-icon-btn" title="Editar" onclick="abrirModalInv(${l.id})"><span class="material-symbols-outlined" style="font-size:16px">edit</span></button>
+                    <button class="btn-icon inv-icon-btn" title="Eliminar" onclick="eliminarInversion(${l.id})"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+                </div>`).join('')}
+            </div>` : ''}
         </div>`;
     }).join('');
 }
 
+// Agrupa lotes (una fila = un aporte en una fecha) del mismo activo — "mismo activo" es
+// nombre+tipo, no ticker, porque el ticker es opcional (Bonos/Oro/Otro no siempre lo tienen).
+// El % objetivo se suma (cada lote ya trae su porción del objetivo total del activo, repartida
+// al cargarlos) y el precio promedio es el costo ponderado: monto total / cantidad total.
+function agruparInversiones(lista) {
+    const grupos = new Map();
+    lista.forEach(inv => {
+        const key = `${inv.nombre}|${inv.tipo}`;
+        if (!grupos.has(key)) {
+            grupos.set(key, {
+                key, nombre: inv.nombre, tipo: inv.tipo, ticker: inv.ticker, mercado: inv.mercado,
+                montoInvertido: 0, cantidad: 0, tieneCantidad: true, porcentajeCartera: 0, lotes: [],
+            });
+        }
+        const g = grupos.get(key);
+        g.montoInvertido += Number(inv.montoInvertido);
+        g.porcentajeCartera += Number(inv.porcentajeCartera);
+        if (inv.cantidad != null) g.cantidad += Number(inv.cantidad); else g.tieneCantidad = false;
+        g.lotes.push(inv);
+    });
+    const out = [...grupos.values()];
+    out.forEach(g => {
+        g.lotes.sort((a, b) => (a.fechaRegistro || '').localeCompare(b.fechaRegistro || ''));
+        g.precioPromedio = (g.tieneCantidad && g.cantidad > 0) ? g.montoInvertido / g.cantidad : null;
+    });
+    out.sort((a, b) => b.montoInvertido - a.montoInvertido);
+    return out;
+}
+
+// Suma valorMercado/gananciaPerdida de los lotes de un mismo activo — precioActual/variación
+// son iguales en todos los lotes (mismo ticker), así que se toman del primero disponible.
+function agruparCotizacion(lotes) {
+    const cots = lotes.map(l => cotizacionesPorId[l.id]).filter(Boolean);
+    if (!cots.length) return null;
+    const disponible = cots.find(c => c.disponible);
+    if (!disponible) return cots[0];
+
+    const conValor = cots.filter(c => c.valorMercado != null);
+    let valorMercado = null, gananciaPerdida = null, gananciaPerdidaPct = null;
+    if (conValor.length) {
+        valorMercado = conValor.reduce((s, c) => s + Number(c.valorMercado), 0);
+        gananciaPerdida = conValor.reduce((s, c) => s + Number(c.gananciaPerdida), 0);
+        const montoBase = valorMercado - gananciaPerdida;
+        if (montoBase > 0) gananciaPerdidaPct = (gananciaPerdida * 100) / montoBase;
+    }
+    return {
+        disponible: true,
+        ticker: disponible.ticker,
+        mercado: disponible.mercado,
+        precioActual: disponible.precioActual,
+        variacionDiariaPct: disponible.variacionDiariaPct,
+        historico: disponible.historico,
+        valorMercado, gananciaPerdida, gananciaPerdidaPct,
+    };
+}
+
+let gruposPosicionesActuales = {};
+
+function toggleLotesInv(key) {
+    document.getElementById(`lotes-${key}`).classList.toggle('hidden');
+}
+
+function abrirModalInvNuevoAporte(key) {
+    const g = gruposPosicionesActuales[key];
+    if (!g) return;
+    abrirModalInv();
+    document.getElementById('modal-inv-title').textContent = `Nuevo aporte · ${g.nombre}`;
+    document.getElementById('inv-nombre').value = g.nombre;
+    document.getElementById('inv-tipo').value = g.tipo;
+    document.getElementById('inv-ticker').value = g.ticker || '';
+    if (g.mercado) document.getElementById('inv-mercado').value = g.mercado;
+    actualizarVisibilidadCamposAcciones();
+}
+
 function actualizarVisibilidadCamposAcciones() {
     const tipo = document.getElementById('inv-tipo').value;
-    document.getElementById('inv-acciones-fields').classList.toggle('hidden', tipo !== 'ACCIONES');
+    document.getElementById('inv-acciones-fields').classList.toggle('hidden', tipo !== 'ACCIONES' && tipo !== 'FONDO');
 }
 
 // Autocompletado de tickers: reutiliza el panel/posicionamiento genérico de los
@@ -351,23 +536,27 @@ function renderResumenCotizaciones() {
 
 // Ranking de mejores/peores del día por variación %. Acá sí se puede comparar entre
 // mercados distintos porque es un porcentaje, no una suma de montos en moneda.
+// Una entrada por activo (no por aporte) — todos los lotes de un mismo activo comparten ticker
+// y variación diaria, así que sin agrupar el mismo ticker aparecía repetido una vez por cada
+// aporte cargado.
 function renderRankingCotizaciones() {
     const cont = document.getElementById('inv-cotiz-ranking');
     if (!cont) return;
-    const disponibles = Object.values(cotizacionesPorId)
-        .filter(c => c.disponible && c.variacionDiariaPct != null)
-        .sort((a, b) => Number(b.variacionDiariaPct) - Number(a.variacionDiariaPct));
+    const disponibles = agruparInversiones(inversiones)
+        .map(g => ({ nombre: g.nombre, cot: agruparCotizacion(g.lotes) }))
+        .filter(x => x.cot && x.cot.disponible && x.cot.variacionDiariaPct != null)
+        .sort((a, b) => Number(b.cot.variacionDiariaPct) - Number(a.cot.variacionDiariaPct));
 
     if (disponibles.length < 2) { cont.innerHTML = ''; return; }
 
     const mejores = disponibles.slice(0, 3);
     const peores = disponibles.slice(-3).reverse();
 
-    const item = c => {
-        const v = Number(c.variacionDiariaPct);
+    const item = x => {
+        const v = Number(x.cot.variacionDiariaPct);
         const clase = v >= 0 ? 'text-success' : 'text-danger';
         const signo = v >= 0 ? '+' : '';
-        return `<div class="inv-ranking-item"><span>${c.ticker}</span><span class="${clase}">${signo}${v.toFixed(2)}%</span></div>`;
+        return `<div class="inv-ranking-item"><span>${x.nombre}</span><span class="${clase}">${signo}${v.toFixed(2)}%</span></div>`;
     };
 
     cont.innerHTML = `
@@ -450,6 +639,7 @@ function abrirModalInv(id) {
     crearCustomSelect('inv-mercado',
         Object.entries(MERCADO_LABELS).map(([valor, texto]) => ({ valor, texto })), 'Seleccionar mercado');
     document.getElementById('inv-ticker-panel').classList.add('hidden');
+    crearDatePicker('inv-fecha', 'Elegí una fecha', null, document.getElementById('inv-fecha').closest('.tx-field'));
     document.getElementById('inv-fecha').value = new Date().toISOString().slice(0, 10);
 
     if (id) {

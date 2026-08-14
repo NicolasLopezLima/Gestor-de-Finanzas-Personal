@@ -108,19 +108,53 @@
                     <span class="material-symbols-outlined">upload_file</span> Importar Excel
                 </button>
                 <input type="file" id="input-importar-excel" accept=".xlsx,.xls,.ods,.csv" hidden>
-                <div class="np-flat tx-field tx-filtro-categoria">
-                    <span class="material-symbols-outlined tx-field-icon">filter_list</span>
-                    <div id="filtro-categoria" class="custom-select"></div>
-                    <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+
+                <div class="tx-filtros-wrap">
+                    <button type="button" id="btn-filtros" class="np-button np-pill np-pill-sm">
+                        <span class="material-symbols-outlined">filter_list</span> Filtros
+                        <span id="tx-filtros-badge" class="tx-filtros-badge hidden"></span>
+                    </button>
+                    <div id="panel-filtros" class="custom-select-panel tx-filtros-panel hidden">
+                        <div class="tx-filtros-grupo">
+                            <label class="tx-filtros-label">Categoría</label>
+                            <div class="np-inset tx-field tx-filtro-categoria">
+                                <span class="material-symbols-outlined tx-field-icon">sell</span>
+                                <div id="filtro-categoria" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+                        <div class="tx-filtros-grupo">
+                            <label class="tx-filtros-label">Rango de fechas</label>
+                            <div class="np-inset tx-field tx-filtro-fecha">
+                                <span class="material-symbols-outlined tx-field-icon">event</span>
+                                <div id="filtro-fecha-desde" class="custom-date" title="Desde"></div>
+                                <span class="tx-filtro-fecha-separador">–</span>
+                                <div id="filtro-fecha-hasta" class="custom-date" title="Hasta"></div>
+                                <button type="button" id="btn-limpiar-filtro-fecha" class="btn-icon hidden" title="Quitar filtro de fecha">
+                                    <span class="material-symbols-outlined" style="font-size:16px">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
                 <small class="tx-import-hint">La exportación incluye todos tus movimientos ya cargados, un mes por hoja. Si la volvés a importar sin editarla, se van a duplicar. Formatos aceptados para importar: .xlsx, .xls, .ods, .csv.</small>
             </div>
 
             <div class="tx-tabs-row">
-                <div class="np-tabs">
+                <div class="np-tabs" id="tx-tabs">
                     <button class="tab np-tab active" data-filter="todos">Todos</button>
-                    <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
-                    <button class="tab np-tab" data-filter="GASTO">Gastos</button>
+                    <div class="np-tabs-page" id="tx-tabs-page-1">
+                        <button class="tab np-tab" data-filter="INGRESO">Ingresos</button>
+                        <button class="tab np-tab" data-filter="GASTO">Gastos</button>
+                    </div>
+                    <div class="np-tabs-page hidden" id="tx-tabs-page-2">
+                        <button class="tab np-tab" data-filter="META">Metas</button>
+                        <button class="tab np-tab" data-filter="INVERSION">Inversión</button>
+                    </div>
+                    <button type="button" id="btn-tx-tabs-page" class="np-tab-arrow" title="Ver Metas e Inversión">
+                        <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
                 </div>
                 <button type="button" id="btn-modo-seleccion" class="np-button np-pill np-pill-sm tx-select-toggle">
                     <span class="material-symbols-outlined">delete_sweep</span> Seleccionar
@@ -150,12 +184,18 @@
                     </div>
                     <form id="form-transaccion" class="tx-form">
                         <input type="hidden" id="t-id">
-                        <div class="tipo-toggle np-inset">
+                        <div class="tipo-toggle np-inset tipo-toggle-4">
                             <button type="button" class="tipo-btn active" data-value="INGRESO">
                                 <span class="material-symbols-outlined tipo-icon">arrow_upward</span> Ingreso
                             </button>
                             <button type="button" class="tipo-btn" data-value="GASTO">
                                 <span class="material-symbols-outlined tipo-icon">arrow_downward</span> Gasto
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="META">
+                                <span class="material-symbols-outlined tipo-icon">track_changes</span> Meta
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="INVERSION">
+                                <span class="material-symbols-outlined tipo-icon">pie_chart</span> Inversión
                             </button>
                         </div>
                         <input type="hidden" id="t-tipo" value="INGRESO">
@@ -168,7 +208,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="t-descripcion-grupo">
                             <label class="np-label-sm">Descripción</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">edit_note</span>
@@ -176,7 +216,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="t-categoria-grupo">
                             <label class="np-label-sm">Categoría</label>
                             <div class="np-flat tx-field">
                                 <span class="material-symbols-outlined tx-field-icon">sell</span>
@@ -185,7 +225,25 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group hidden" id="t-meta-grupo">
+                            <label class="np-label-sm">Meta</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">track_changes</span>
+                                <div id="t-meta" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group hidden" id="t-meta-gasto-grupo">
+                            <label class="np-label-sm">¿Sale de una meta? (opcional)</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">track_changes</span>
+                                <div id="t-meta-gasto" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="t-dia-grupo">
                             <label class="np-label-sm">Día del mes</label>
                             <div class="np-flat tx-field fecha-dia-wrapper">
                                 <span class="material-symbols-outlined tx-field-icon">calendar_today</span>
@@ -195,11 +253,25 @@
                         </div>
 
                         <label class="mapeo-recordar" id="t-repetir-grupo">
-                            <input type="checkbox" id="t-repetir"> Repetir todos los meses
+                            <input type="checkbox" id="t-repetir"> Repetir esta transacción
                         </label>
+                        <div class="form-group hidden" id="t-frecuencia-grupo">
+                            <label class="np-label-sm">Frecuencia</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">event_repeat</span>
+                                <div id="t-frecuencia" class="custom-select"></div>
+                                <span class="material-symbols-outlined tx-field-chevron">expand_more</span>
+                            </div>
+                            <div class="hidden" id="t-frecuencia-dias-grupo" style="margin-top:8px">
+                                <div class="np-flat tx-field">
+                                    <span class="material-symbols-outlined tx-field-icon">tag</span>
+                                    <input type="number" id="t-frecuencia-dias" min="1" placeholder="Cada cuántos días">
+                                </div>
+                            </div>
+                        </div>
                         <div class="tx-fija-info hidden" id="t-fija-info">
                             <span class="material-symbols-outlined">sync</span>
-                            <span>Esta transacción se repite todos los meses.</span>
+                            <span id="t-fija-info-texto">Esta transacción se repite todos los meses.</span>
                             <button type="button" id="btn-cancelar-recurrencia">Dejar de repetir</button>
                         </div>
 
@@ -224,6 +296,9 @@
                         </button>
                         <button type="button" id="categorias-modo-gasto" class="tipo-btn" data-value="GASTO">
                             <span class="material-symbols-outlined tipo-icon">arrow_downward</span> Gastos
+                        </button>
+                        <button type="button" id="categorias-modo-inversion" class="tipo-btn" data-value="INVERSION">
+                            <span class="material-symbols-outlined tipo-icon">pie_chart</span> Inversión
                         </button>
                     </div>
 
@@ -629,6 +704,10 @@
                                             <span>Último aporte</span>
                                             <strong id="detalle-ultimo-aporte">—</strong>
                                         </div>
+                                        <div class="meta-detalle-stat" id="detalle-disponible-stat">
+                                            <span>Disponible</span>
+                                            <strong id="detalle-disponible">—</strong>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="meta-detalle-action" id="detalle-action">
@@ -661,12 +740,29 @@
                     <p id="modal-abono-nombre" style="color:var(--text-muted);margin-bottom:12px"></p>
                     <form id="form-abono">
                         <input type="hidden" id="abono-meta-id">
+                        <div class="tipo-toggle np-inset">
+                            <button type="button" class="tipo-btn active" data-value="MANUAL">
+                                <span class="material-symbols-outlined tipo-icon">payments</span> Manual
+                            </button>
+                            <button type="button" class="tipo-btn" data-value="AUTOMATICO">
+                                <span class="material-symbols-outlined tipo-icon">sync</span> Automático
+                            </button>
+                        </div>
+                        <input type="hidden" id="abono-modo" value="MANUAL">
                         <div class="form-group">
-                            <label>Monto a abonar</label>
+                            <label id="abono-monto-label">Monto a abonar</label>
                             <input type="number" id="abono-monto" min="0.01" step="0.01" required placeholder="0.00">
                         </div>
+                        <div class="form-group" id="abono-fecha-grupo">
+                            <label class="np-label-sm">Fecha del abono</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">event</span>
+                                <div id="abono-fecha" class="custom-date"></div>
+                            </div>
+                        </div>
+                        <p id="abono-automatico-info" class="hidden" style="color:var(--text-muted);font-size:13px;margin-top:-8px;margin-bottom:12px">Se va a abonar este monto automáticamente todos los meses, como una transacción de tipo "Meta" en Ingresos & Gastos. Podés pausarlo cuando quieras desde el menú de la meta.</p>
                         <div class="modal-actions">
-                            <button type="submit" class="btn btn-primary">Abonar</button>
+                            <button type="submit" id="btn-confirmar-abono" class="btn btn-primary">Abonar</button>
                             <button type="button" id="btn-cancelar-abono" class="btn btn-secondary">Cancelar</button>
                         </div>
                     </form>
@@ -677,8 +773,21 @@
         <div id="page-inversiones" class="page">
             <div class="page-header">
                 <h1>Cartera de Inversiones</h1>
+                <button id="btn-graficos-inv" class="np-button np-pill-sm" type="button">
+                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">show_chart</span>
+                    Gráficos
+                </button>
                 <button id="btn-nueva-inversion" class="np-button np-pill">+ Nueva Inversión</button>
             </div>
+
+            <div id="inv-graficos-section" class="hidden">
+                <div class="inv-graficos-header">
+                    <div class="inv-graficos-hint">Buscá cualquier símbolo tocando el nombre en el gráfico.</div>
+                </div>
+                <div id="tv-search-container" class="tv-chart-container"></div>
+            </div>
+
+            <div id="inv-cartera-contenido">
 
             <div class="inv-hero">
                 <div class="dash-period-label">Valor Total Neto</div>
@@ -729,6 +838,8 @@
             </div>
             <div id="inv-posiciones-list" class="inv-posiciones-list"></div>
 
+            </div>
+
             <div id="modal-inversion" class="modal hidden">
                 <div class="modal-content np-form">
                     <h2 id="modal-inv-title">Nueva Inversión</h2>
@@ -767,8 +878,11 @@
                             <p class="mapeo-hint">Ticker, mercado y cantidad son opcionales. Si los completás, mostramos el valor de mercado actual de esta posición.</p>
                         </div>
                         <div class="form-group">
-                            <label>Fecha de inversión</label>
-                            <input type="date" id="inv-fecha" required>
+                            <label class="np-label-sm">Fecha de inversión</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">event</span>
+                                <div id="inv-fecha" class="custom-date"></div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Monto Invertido</label>
@@ -789,16 +903,58 @@
                     </form>
                 </div>
             </div>
+
+            <div id="modal-tv-chart" class="modal hidden">
+                <div class="modal-content tv-modal-content">
+                    <div class="modal-header">
+                        <h2 id="modal-tv-chart-title">Gráfico</h2>
+                        <button type="button" id="btn-cerrar-tv-chart" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
+                    <div id="tv-position-container" class="tv-chart-container"></div>
+                </div>
+            </div>
         </div>
     </main>
+
+    <div id="vista3d-overlay" class="hidden">
+        <div class="vista3d-header">
+            <button type="button" id="btn-volver-dashboard-3d">
+                <span class="material-symbols-outlined">arrow_back</span> Volver al Dashboard
+            </button>
+            <div id="vista3d-titulo"></div>
+            <div class="vista3d-toggle">
+                <button type="button" id="vista3d-toggle-burbujas" class="active">Burbujas</button>
+                <button type="button" id="vista3d-toggle-lista">Lista</button>
+            </div>
+        </div>
+
+        <div class="vista3d-total-strip">
+            <div class="vista3d-total-card">
+                <div>
+                    <div class="vista3d-total-label">Total</div>
+                    <div id="vista3d-total-monto" class="vista3d-total-monto"></div>
+                </div>
+                <div class="vista3d-total-divisor"></div>
+                <div id="vista3d-total-texto" class="vista3d-total-texto"></div>
+            </div>
+        </div>
+
+        <div id="vista3d-hint">Arrastrá una burbuja para moverla — clic simple para ver el detalle</div>
+        <div id="vista3d-empty" class="hidden">Todavía no hay nada para mostrar acá.</div>
+        <div id="vista3d-bubble-field"></div>
+
+        <button type="button" id="btn-nueva-3d" title="Agregar">+</button>
+    </div>
 
     <script src="js/api.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/transacciones.js"></script>
     <script src="js/presupuesto.js"></script>
     <script src="js/metas.js"></script>
+    <script src="https://s3.tradingview.com/tv.js"></script>
     <script src="js/inversiones.js"></script>
     <script src="js/dashboard.js"></script>
+    <script src="js/vista3d.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
