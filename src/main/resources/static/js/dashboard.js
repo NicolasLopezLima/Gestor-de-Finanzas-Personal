@@ -1,3 +1,9 @@
+const PASOS_TOUR_DASHBOARD = [
+    { selector: '#dashboard-cards', titulo: 'Tu pantalla principal', texto: 'Acá ves tu balance disponible del mes y accesos rápidos a tus metas e inversiones.' },
+    { selector: ['.sidebar', '.bottom-nav'], titulo: 'Así navegás', texto: 'Desde acá entrás a Ingresos & Gastos, Presupuesto, Metas e Inversiones.' },
+    { selector: null, titulo: '¡Listo!', texto: 'Ya podés explorar cada sección — la primera vez que entres a cada una te mostramos un tour cortito como este.' },
+];
+
 const DASH_ICONS = {
     invertido: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
     metaActiva: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
@@ -67,6 +73,7 @@ async function initDashboard() {
             actionLabel: '+ Agregar transacción',
             actionOnClick: "navigateTo('transacciones')",
         });
+        iniciarTour('DASHBOARD', PASOS_TOUR_DASHBOARD);
         return;
     }
 
@@ -177,4 +184,6 @@ async function initDashboard() {
                 </div>`;
             pageEl.appendChild(section);
         }
+
+    iniciarTour('DASHBOARD', PASOS_TOUR_DASHBOARD);
 }

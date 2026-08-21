@@ -30,6 +30,11 @@ async function initMetas() {
     });
     document.addEventListener('click', cerrarMetaMenus);
     await cargarMetas();
+
+    iniciarTour('METAS', [
+        { selector: '#metas-grid', titulo: 'Tus metas de ahorro', texto: 'Cada tarjeta muestra cuánto aportaste, cuánto ya gastaste de eso y el disponible real.' },
+        { selector: '#metas-grid .meta-add-card', titulo: 'Nueva meta', texto: 'Definí un objetivo con monto y fecha límite, y hacé seguimiento de tu progreso.' },
+    ]);
 }
 
 async function cargarMetas() {
@@ -293,6 +298,16 @@ function cerrarModalMeta() {
     document.getElementById('modal-meta').classList.add('hidden');
 }
 
+// Atajo para cargar un Gasto ya vinculado a esta meta, sin tener que ir a Ingresos & Gastos y
+// buscarla a mano en "¿Sale de una meta?" — mismo modal y misma lógica de siempre (Nueva
+// Transacción vive en esa página, así que hay que navegar ahí para que exista en el DOM). Si es
+// la primera vez que se visita esa página en esta sesión, hay que esperar a que termine de
+// inicializar (período, categorías, etc.) antes de abrir el modal encima.
+async function agregarGastoDesdeMeta(metaId) {
+    await navigateTo('transacciones');
+    abrirModalTransaccion(null, metaId);
+}
+
 async function abrirModalDetalle(id) {
     const m = metas.find(x => x.id === id);
     if (!m) return;
@@ -323,6 +338,10 @@ async function abrirModalDetalle(id) {
     document.getElementById('btn-abonar-desde-detalle').onclick = () => {
         cerrarModalDetalle();
         abrirModalAbono(m.id);
+    };
+    document.getElementById('btn-gasto-desde-detalle').onclick = () => {
+        cerrarModalDetalle();
+        agregarGastoDesdeMeta(m.id);
     };
 
     document.getElementById('detalle-promedio').textContent = '—';

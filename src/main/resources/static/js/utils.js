@@ -20,7 +20,10 @@ function totalesHastaHoy(transacciones) {
     const hoy = todayStr();
     const hastaHoy = (transacciones || []).filter(t => t.fecha <= hoy);
     const ingresos = hastaHoy.filter(t => t.tipo === 'INGRESO').reduce((s, t) => s + Number(t.monto), 0);
-    const gastos = hastaHoy.filter(t => t.tipo === 'GASTO').reduce((s, t) => s + Number(t.monto), 0);
+    // Un Gasto vinculado a una meta (t.metaId) ya restó del balance cuando se abonó a esa meta —
+    // es plata reasignada desde un pozo ya ahorrado, no un gasto nuevo del mes. Contarlo acá de
+    // nuevo lo restaría dos veces.
+    const gastos = hastaHoy.filter(t => t.tipo === 'GASTO' && !t.metaId).reduce((s, t) => s + Number(t.monto), 0);
     const metas = hastaHoy.filter(t => t.tipo === 'META').reduce((s, t) => s + Number(t.monto), 0);
     const inversion = hastaHoy.filter(t => t.tipo === 'INVERSION').reduce((s, t) => s + Number(t.monto), 0);
     // Un abono a una meta o un aporte a una inversión son plata real que salió del bolsillo, igual

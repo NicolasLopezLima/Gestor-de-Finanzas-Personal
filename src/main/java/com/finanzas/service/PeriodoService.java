@@ -28,6 +28,13 @@ public interface PeriodoService {
      * META — no se expone como tipo elegible en el alta genérica de transacciones.
      */
     void registrarAbonoMeta(MetaFinanciera meta, BigDecimal monto, LocalDate fecha, Long usuarioId);
+
+    /**
+     * Aplica a montoAcumulado los abonos a Meta cuya fecha ya llegó pero todavía estaban
+     * pendientes (se generaron/registraron a futuro). Se llama antes de mostrar cualquier
+     * pantalla que dependa del progreso de las metas, para que quede al día sin tarea programada.
+     */
+    void aplicarAbonosVencidos(Long usuarioId);
     PeriodoResumenDTO cerrarPeriodo(int anio, int mes, Long usuarioId);
     byte[] generarExportacionHistorica(Long usuarioId);
     ImportacionResponseDTO importarTransacciones(int anio, int mes, InputStream excel, String nombreArchivo, Long usuarioId);

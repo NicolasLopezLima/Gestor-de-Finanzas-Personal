@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,6 +107,7 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
 
     @Override
     public List<MetaFinancieraDTO> listarActivas(Long usuarioId) {
+        periodoService.aplicarAbonosVencidos(usuarioId);
         actualizarEstadosVencidos(usuarioId);
         return metaRepo.findByEstadoAndUsuarioId(EstadoMeta.ACTIVA, usuarioId)
                 .stream().map(this::toDTO).collect(Collectors.toList());
@@ -113,6 +115,7 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
 
     @Override
     public List<MetaFinancieraDTO> listarTodas(Long usuarioId) {
+        periodoService.aplicarAbonosVencidos(usuarioId);
         actualizarEstadosVencidos(usuarioId);
         return metaRepo.findByUsuarioId(usuarioId).stream().map(this::toDTO).collect(Collectors.toList());
     }
@@ -162,11 +165,14 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
     }
 
     @Override
-    public MetaFinancieraDTO automatizarAbono(Long id, BigDecimal monto, Long usuarioId) {
+    public MetaFinancieraDTO automatizarAbono(Long id, BigDecimal monto, Integer dia, Long usuarioId) {
         MetaFinanciera meta = metaRepo.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Meta no encontrada: " + id));
         Usuario usuario = usuarioRepo.findById(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado"));
+        if (dia != null && (dia < 1 || dia > 31)) {
+            throw new IllegalArgumentException("El día debe estar entre 1 y 31");
+        }
 
         Optional<TransaccionFija> existente = transaccionFijaRepo.findByMetaIdAndActivaTrue(id);
         TransaccionFija fija = existente.orElseGet(TransaccionFija::new);
@@ -177,19 +183,28 @@ public class MetaFinancieraServiceImpl implements MetaFinancieraService {
         fija.setMeta(meta);
         fija.setUsuario(usuario);
         fija.setActiva(true);
+        // dia: el usuario puede elegir cualquier día del mes para el abono (antes quedaba fijo
+        // al día en que se activaba la automatización). Ojo: calcularOcurrencias() lee el día de
+        // fechaInicio (vía getFechaInicioEfectiva()), NO el campo "dia" suelto — así que hay que
+        // mantenerlos sincronizados los dos siempre, no solo cuando "dia" viene explícito en el
+        // request: algunas pantallas (ej. "Automatizar" desde la tarjeta de la Meta) reguardan la
+        // regla sin exponer un selector de día, mandando dia=null — si ahí no reaplicáramos el día
+        // ya guardado, fechaInicio quedaría desincronizada para siempre y cada re-guardado
+        // regeneraría un abono en la fecha vieja incorrecta (el bug real que pasó).
+        LocalDate hoy = LocalDate.now();
+        int diaEfectivo = dia != null ? dia : (existente.isPresent() ? fija.getDia() : hoy.getDayOfMonth());
+        fija.setDia(diaEfectivo);
+        int diasEnMesActual = YearMonth.of(hoy.getYear(), hoy.getMonthValue()).lengthOfMonth();
+        fija.setFechaInicio(LocalDate.of(hoy.getYear(), hoy.getMonthValue(), Math.min(diaEfectivo, diasEnMesActual)));
         if (existente.isEmpty()) {
-            LocalDate hoy = LocalDate.now();
-            fija.setDia(hoy.getDayOfMonth());
             fija.setAnioInicio(hoy.getYear());
             fija.setMesInicio(hoy.getMonthValue());
-            fija.setFechaInicio(hoy);
             fija.setFrecuencia(FrecuenciaRecurrencia.MENSUAL);
         }
         transaccionFijaRepo.save(fija);
 
         // Dispara la generación del mes actual ya mismo (mismo mecanismo que cualquier
         // transacción recurrente) — así el primer aporte automático no espera al próximo mes.
-        LocalDate hoy = LocalDate.now();
         periodoService.obtenerPeriodo(hoy.getYear(), hoy.getMonthValue(), usuarioId);
 
         return toDTO(metaRepo.findByIdAndUsuarioId(id, usuarioId).orElseThrow());

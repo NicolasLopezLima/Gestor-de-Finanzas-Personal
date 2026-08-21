@@ -109,6 +109,7 @@ public class PeriodoServiceImpl implements PeriodoService {
                     return periodoRepo.save(nuevo);
                 });
         generarFijasPendientes(periodo, usuarioId);
+        aplicarAbonosVencidos(usuarioId);
         return periodo;
     }
 
@@ -143,7 +144,13 @@ public class PeriodoServiceImpl implements PeriodoService {
                 boolean esAbonoMeta = fija.getTipo() == TipoTransaccion.META && fija.getMeta() != null;
                 if (esAbonoMeta) t.setMeta(fija.getMeta());
                 transaccionRepo.save(t);
-                if (esAbonoMeta) aplicarAbonoDesdeTransaccion(fija.getMeta(), fija.getMonto(), t);
+                // Un abono generado a futuro (ej. automatización que ya adelantó el mes que viene)
+                // todavía no es plata "disponible" de verdad — no se suma a montoAcumulado hasta
+                // que su fecha llegue (ver aplicarAbonosVencidos), mismo criterio que ya usan
+                // Ingresos/Gastos para no contar transacciones pendientes.
+                if (esAbonoMeta && !fecha.isAfter(LocalDate.now())) {
+                    aplicarAbonoDesdeTransaccion(fija.getMeta(), fija.getMonto(), t);
+                }
             }
         }
     }
@@ -181,6 +188,38 @@ public class PeriodoServiceImpl implements PeriodoService {
         });
     }
 
+    /**
+     * Edita un abono a Meta ya registrado: solo se pueden ajustar el monto y la fecha (dentro del
+     * mismo período — cambiar de mes reasignaría período, algo que ningún otro tipo de edición
+     * soporta hoy tampoco). Descripción, categoría y a qué meta pertenece son derivados de la
+     * meta original y no se tocan acá. El delta de monto ajusta montoAcumulado y reevalúa el
+     * estado ACTIVA/COMPLETADA, igual que aplicar/revertir un abono nuevo.
+     */
+    private TransaccionDTO editarAbonoMeta(Transaccion t, TransaccionDTO dto) {
+        if (dto.getMonto() == null || dto.getMonto().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto debe ser mayor a cero.");
+        }
+        // Si todavía no se aplicó (fecha futura, sin AbonoMeta vinculado todavía), no se toca
+        // montoAcumulado acá — se va a aplicar con el monto/fecha ya editados cuando corresponda
+        // (aplicarAbonosVencidos). Si ya se había aplicado, se ajusta por el delta como siempre.
+        abonoRepo.findByTransaccionId(t.getId()).ifPresent(abono -> {
+            MetaFinanciera meta = t.getMeta();
+            BigDecimal delta = dto.getMonto().subtract(t.getMonto());
+            meta.setMontoAcumulado(meta.getMontoAcumulado().add(delta).max(BigDecimal.ZERO));
+            if (meta.getMontoAcumulado().compareTo(meta.getMontoObjetivo()) >= 0) {
+                meta.setEstado(EstadoMeta.COMPLETADA);
+            } else if (meta.getEstado() == EstadoMeta.COMPLETADA) {
+                meta.setEstado(EstadoMeta.ACTIVA);
+            }
+            metaRepo.save(meta);
+            abono.setMonto(dto.getMonto());
+            abonoRepo.save(abono);
+        });
+        t.setMonto(dto.getMonto());
+        if (dto.getFecha() != null) t.setFecha(dto.getFecha());
+        return toDTO(transaccionRepo.save(t));
+    }
+
     @Override
     public void registrarAbonoMeta(MetaFinanciera meta, BigDecimal monto, LocalDate fecha, Long usuarioId) {
         PeriodoMensual periodo = obtenerOCrearPeriodo(fecha.getYear(), fecha.getMonthValue(), usuarioId);
@@ -196,7 +235,26 @@ public class PeriodoServiceImpl implements PeriodoService {
         t.setPeriodo(periodo);
         t.setMeta(meta);
         transaccionRepo.save(t);
-        aplicarAbonoDesdeTransaccion(meta, monto, t);
+        // Un abono manual con fecha futura (ej. catching up un mes que todavía no llegó) tampoco
+        // cuenta todavía — mismo criterio que los abonos generados por una automatización.
+        if (!fecha.isAfter(LocalDate.now())) {
+            aplicarAbonoDesdeTransaccion(meta, monto, t);
+        }
+    }
+
+    /**
+     * Aplica (suma a montoAcumulado + AbonoMeta) los abonos a Meta cuya fecha ya "pasó" pero
+     * todavía no se aplicaron — se generaron/registraron a futuro y ahora ya llegó su día. Se
+     * detectan por no tener un AbonoMeta vinculado todavía. Se llama al cargar cualquier período
+     * y al listar Metas, así el progreso se pone al día sin depender de una tarea programada.
+     */
+    @Override
+    public void aplicarAbonosVencidos(Long usuarioId) {
+        LocalDate hoy = LocalDate.now();
+        transaccionRepo.findByPeriodo_Usuario_IdAndTipoAndMetaIsNotNullAndFechaLessThanEqual(usuarioId, TipoTransaccion.META, hoy)
+                .stream()
+                .filter(t -> abonoRepo.findByTransaccionId(t.getId()).isEmpty())
+                .forEach(t -> aplicarAbonoDesdeTransaccion(t.getMeta(), t.getMonto(), t));
     }
 
     /** Todas las fechas en que "fija" cae dentro de [desde, hasta] (inclusive), según su frecuencia. */
@@ -326,6 +384,9 @@ public class PeriodoServiceImpl implements PeriodoService {
         if (t.getPeriodo().isCerrado()) {
             throw new IllegalStateException("No se puede editar una transacción de un periodo cerrado.");
         }
+        if (t.getTipo() == TipoTransaccion.META) {
+            return editarAbonoMeta(t, dto);
+        }
         t.setDescripcion(dto.getDescripcion());
         t.setMonto(dto.getMonto());
         t.setTipo(dto.getTipo());
@@ -385,6 +446,18 @@ public class PeriodoServiceImpl implements PeriodoService {
         return toResumenDTO(periodoRepo.save(periodo));
     }
 
+    // Único lugar que define qué cuenta como "gasto general" del mes — un Gasto vinculado a una
+    // Meta (meta_id no nulo) ya salió del Disponible cuando se abonó a esa meta, es plata
+    // reasignada desde un pozo ya ahorrado, no gasto nuevo. Todo lo que calcule "gastos" sobre
+    // una lista de transacciones de un período pasa por acá, así el criterio no se puede
+    // desincronizar entre un cálculo y otro.
+    private static BigDecimal sumarGastosGenerales(List<Transaccion> transacciones) {
+        return transacciones.stream()
+                .filter(t -> t.getTipo() == TipoTransaccion.GASTO && t.getMeta() == null)
+                .map(Transaccion::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private PeriodoResumenDTO toResumenDTO(PeriodoMensual periodo) {
         List<Transaccion> transacciones = transaccionRepo.findByPeriodoId(periodo.getId());
 
@@ -393,10 +466,7 @@ public class PeriodoServiceImpl implements PeriodoService {
                 .map(Transaccion::getMonto)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal gastos = transacciones.stream()
-                .filter(t -> t.getTipo() == TipoTransaccion.GASTO)
-                .map(Transaccion::getMonto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal gastos = sumarGastosGenerales(transacciones);
 
         BigDecimal metas = transacciones.stream()
                 .filter(t -> t.getTipo() == TipoTransaccion.META)
@@ -1078,10 +1148,7 @@ public class PeriodoServiceImpl implements PeriodoService {
                     .filter(t -> t.getTipo() == TipoTransaccion.INGRESO)
                     .map(Transaccion::getMonto)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal gastos = transacciones.stream()
-                    .filter(t -> t.getTipo() == TipoTransaccion.GASTO)
-                    .map(Transaccion::getMonto)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal gastos = sumarGastosGenerales(transacciones);
             total = total.add(ingresos.subtract(gastos));
         }
         return total.divide(BigDecimal.valueOf(ultimos.size()), 2, RoundingMode.HALF_UP);
