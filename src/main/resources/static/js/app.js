@@ -15,12 +15,16 @@ function navigateTo(pageId) {
 
     document.querySelectorAll(`[data-page="${pageId}"]`).forEach(link => link.classList.add('active'));
 
+    // Se devuelve la promesa de init (si corrió) para quien necesite esperar a que la página
+    // termine de cargar sus datos antes de seguir — ej. agregarGastoDesdeMeta en metas.js, que
+    // navega acá y después abre un modal que vive en esta página.
     const entry = pages[pageId];
+    let initPromise;
     if (entry && !entry.loaded) {
-        entry.init();
+        initPromise = entry.init();
         entry.loaded = true;
     } else if (pageId === 'dashboard') {
-        initDashboard();
+        initPromise = initDashboard();
     }
 
     // La vista 3D no se dispara por navegación — se abre al clickear alguna de las 4 tarjetas
@@ -29,6 +33,7 @@ function navigateTo(pageId) {
     if (pageId !== 'transacciones') {
         window.cerrarVista3D?.();
     }
+    return initPromise;
 }
 
 document.querySelectorAll('.nav-links a, .bottom-nav a').forEach(a => {

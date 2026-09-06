@@ -13,3 +13,7 @@ dist/
 # Variables de entorno locales (credenciales)
 .env.local
 .env
+
+# Logs de ejecución local
+*.txt
+STITCH_CONTEXT.md

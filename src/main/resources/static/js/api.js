@@ -35,6 +35,9 @@ async function requestMultipart(method, url, formData) {
 }
 
 const api = {
+    // Tours de onboarding
+    marcarTourVisto: (seccion) => request('POST', `/auth/tours-vistos/${seccion}`),
+
     // Periodos
     getPeriodoActual: () => request('GET', '/periodos/actual'),
     getPeriodo: (a, m) => request('GET', `/periodos/${a}/${m}`),
@@ -70,7 +73,7 @@ const api = {
     abonarMeta: (id, monto, fecha) => request('POST', `/metas/${id}/abonar`, { monto, fecha }),
     listarAbonosMeta: (id) => request('GET', `/metas/${id}/abonos`),
     eliminarAbonoMeta: (metaId, abonoId) => request('DELETE', `/metas/${metaId}/abonos/${abonoId}`),
-    automatizarMeta: (id, monto) => request('POST', `/metas/${id}/automatizar`, { monto }),
+    automatizarMeta: (id, monto, dia) => request('POST', `/metas/${id}/automatizar`, { monto, dia }),
     pausarAutomatizacionMeta: (id) => request('POST', `/metas/${id}/pausar-automatizacion`),
     obtenerRitmoMetas: () => request('GET', '/metas/ritmo'),
 

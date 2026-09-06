@@ -77,6 +77,12 @@ async function initTransacciones() {
     document.getElementById('form-transaccion').addEventListener('submit', onAgregarTransaccion);
 
     document.getElementById('btn-nueva-transaccion').addEventListener('click', () => abrirModalTransaccion());
+
+    // Un Gasto vinculado a una meta puede ser de cualquier mes (calendario completo, navegable,
+    // como Abonar) — a diferencia de un Gasto suelto, que siempre usa "Día del mes" dentro del
+    // período que se está mirando arriba.
+    crearDatePicker('t-fecha-meta', 'Elegí una fecha', null);
+    document.getElementById('t-meta-gasto').addEventListener('change', actualizarCampoFechaGasto);
     document.getElementById('btn-cerrar-transaccion').addEventListener('click', cerrarModalTransaccion);
     document.getElementById('modal-transaccion').addEventListener('click', e => {
         if (e.target === document.getElementById('modal-transaccion')) cerrarModalTransaccion();
@@ -143,7 +149,14 @@ async function initTransacciones() {
 
     crearCustomSelect('t-frecuencia', FRECUENCIAS, null);
     document.getElementById('t-repetir').addEventListener('change', (e) => {
-        document.getElementById('t-frecuencia-grupo').classList.toggle('hidden', !e.target.checked);
+        const esMeta = document.getElementById('t-tipo').value === 'META';
+        // Una Meta no elige frecuencia — su automatización siempre es mensual (ver
+        // actualizarCamposPorTipo), así que el desplegable de frecuencia queda oculto para ella
+        // aunque el checkbox esté tildado.
+        document.getElementById('t-frecuencia-grupo').classList.toggle('hidden', esMeta || !e.target.checked);
+        // Para una Meta, "Día del mes" solo importa una vez que se tilda "Repetir" — un abono
+        // único siempre es "hoy" (lo resuelve el backend), no hace falta elegir día para eso.
+        if (esMeta) document.getElementById('t-dia-grupo').classList.toggle('hidden', !e.target.checked);
     });
     document.getElementById('t-frecuencia').addEventListener('change', () => {
         const esPersonalizada = document.getElementById('t-frecuencia').value === 'PERSONALIZADA';
@@ -199,6 +212,16 @@ async function initTransacciones() {
     });
     crearDatePicker('filtro-fecha-desde', 'Desde', mesDelPeriodo);
     crearDatePicker('filtro-fecha-hasta', 'Hasta', mesDelPeriodo);
+
+    // Editar un abono a Meta: solo monto y fecha, dentro del mismo período que se está viendo
+    // (cambiar de mes reasignaría período, algo que ninguna edición soporta hoy).
+    crearDatePicker('ea-fecha', 'Fecha', mesDelPeriodo);
+    document.getElementById('form-editar-abono').addEventListener('submit', guardarEdicionAbono);
+    document.getElementById('btn-cerrar-editar-abono').addEventListener('click', cerrarModalEditarAbono);
+    document.getElementById('btn-cancelar-editar-abono').addEventListener('click', cerrarModalEditarAbono);
+    document.getElementById('modal-editar-abono').addEventListener('click', e => {
+        if (e.target === document.getElementById('modal-editar-abono')) cerrarModalEditarAbono();
+    });
     document.getElementById('filtro-fecha-desde').addEventListener('change', onCambioFiltroFecha);
     document.getElementById('filtro-fecha-hasta').addEventListener('change', onCambioFiltroFecha);
     document.getElementById('btn-limpiar-filtro-fecha').addEventListener('click', () => {
@@ -230,6 +253,13 @@ async function initTransacciones() {
     actualizarMesLabel();
     await cargarPeriodo();
     programarActualizacionMedianoche();
+
+    iniciarTour('TRANSACCIONES', [
+        { selector: '#btn-nueva-transaccion', titulo: 'Cargá un movimiento', texto: 'Con este botón agregás un ingreso, un gasto, un abono a una meta o un aporte a una inversión.' },
+        { selector: '#btn-filtros', titulo: 'Filtrá lo que buscás', texto: 'Categoría y rango de fechas, todo en un mismo lugar.' },
+        { selector: '#tx-tabs', titulo: 'Por tipo de movimiento', texto: 'Todos, Ingresos, Gastos, Metas o Inversión — tocá la flecha para ver más.' },
+        { selector: '#tabla-transacciones', titulo: 'Tu historial', texto: 'Acá vas a ver todos los movimientos del mes, más recientes primero.' },
+    ]);
 }
 
 function actualizarCategorias(tipo) {
@@ -243,10 +273,13 @@ function actualizarCategorias(tipo) {
     if (categorias.includes(prev)) document.getElementById('t-categoria').value = prev;
 }
 
-// Una Meta no tiene categoría, descripción libre ni día del mes propios (el abono siempre es "hoy",
-// con descripción autogenerada en el backend) ni soporta "Repetir" desde acá — la automatización
-// de una meta se maneja desde su propia tarjeta en la página de Metas. En cambio, Inversión se
-// comporta igual que Gasto en todo (categorías propias + recurrencia normal).
+// Una Meta no tiene categoría, descripción libre ni día del mes propios (el abono siempre es
+// "hoy", con descripción autogenerada en el backend). Sí soporta "Repetir esta transacción" —
+// tildado, el abono se automatiza mensualmente (mismo mecanismo que "Automatizar aportes" desde
+// la tarjeta de la meta, ver onAgregarTransaccion), pero sin elegir frecuencia: la automatización
+// de una meta siempre es mensual, así que el desplegable de frecuencia se mantiene oculto para
+// este tipo. En cambio, Inversión se comporta igual que Gasto en todo (categorías propias +
+// recurrencia normal, con frecuencia elegible).
 async function actualizarCamposPorTipo(tipo) {
     const esMeta = tipo === 'META';
     const esGasto = tipo === 'GASTO';
@@ -256,7 +289,6 @@ async function actualizarCamposPorTipo(tipo) {
     document.getElementById('t-descripcion-grupo').classList.toggle('hidden', esMeta);
     document.getElementById('t-descripcion').required = !esMeta;
     document.getElementById('t-dia-grupo').classList.toggle('hidden', esMeta);
-    document.getElementById('t-repetir-grupo').classList.toggle('hidden', esMeta);
     if (esMeta) {
         document.getElementById('t-repetir').checked = false;
         document.getElementById('t-frecuencia-grupo').classList.add('hidden');
@@ -283,6 +315,19 @@ async function cargarMetasParaSelectorGasto() {
     const activas = (await api.listarMetas()).filter(m => m.estado === 'ACTIVA');
     crearCustomSelect('t-meta-gasto', activas.map(m => ({ valor: String(m.id), texto: m.nombre })), '— Ninguna —');
     if (activas.some(m => String(m.id) === prev)) document.getElementById('t-meta-gasto').value = prev;
+    actualizarCampoFechaGasto();
+}
+
+// Un Gasto vinculado a una meta puede haber pasado en cualquier mes (ej. un gasto de un viaje
+// que se cargó tarde) — por eso usa fecha completa navegable en vez de "Día del mes" dentro del
+// período que se está mirando. Sin vínculo, sigue el comportamiento de siempre.
+function actualizarCampoFechaGasto() {
+    const tieneMeta = !!document.getElementById('t-meta-gasto').value;
+    document.getElementById('t-dia-grupo').classList.toggle('hidden', tieneMeta);
+    document.getElementById('t-fecha-meta-grupo').classList.toggle('hidden', !tieneMeta);
+    if (tieneMeta && !document.getElementById('t-fecha-meta').value) {
+        document.getElementById('t-fecha-meta').value = todayStr();
+    }
 }
 
 // Opciones del filtro por categoría de la lista de transacciones: se limitan al
@@ -464,7 +509,10 @@ async function onEliminarCategoria(id) {
     }
 }
 
-async function abrirModalTransaccion(id) {
+// metaIdParaGasto (opcional): para el atajo "Registrar Gasto" desde el detalle de una Meta —
+// abre el modal ya en Gasto con esa meta elegida en "¿Sale de una meta?", en vez de que el
+// usuario tenga que ir a Ingresos & Gastos y buscarla a mano.
+async function abrirModalTransaccion(id, metaIdParaGasto) {
     if (periodoActual?.cerrado) return;
 
     document.getElementById('form-transaccion').reset();
@@ -479,9 +527,15 @@ async function abrirModalTransaccion(id) {
     document.getElementById('t-frecuencia-dias-grupo').classList.add('hidden');
     document.getElementById('t-frecuencia').value = 'MENSUAL';
     document.getElementById('t-frecuencia-dias').value = '';
+    // t-meta-gasto y t-fecha-meta son divs propios, no controles nativos — form.reset() no los
+    // toca, así que sin esto quedaría pegado el vínculo/fecha de la última vez que se abrió el
+    // modal.
+    document.getElementById('t-meta-gasto').value = '';
+    document.getElementById('t-fecha-meta').value = '';
 
     let tipo = 'INGRESO';
     const t = id ? (periodoActual?.transacciones || []).find(x => x.id === id) : null;
+    if (!t && metaIdParaGasto) tipo = 'GASTO';
     if (t) {
         document.getElementById('modal-transaccion-title').textContent = 'Editar Transacción';
         document.getElementById('tx-submit-btn-label').textContent = 'Guardar cambios';
@@ -508,8 +562,14 @@ async function abrirModalTransaccion(id) {
     await actualizarCamposPorTipo(tipo);
     if (t) {
         document.getElementById('t-categoria').value = t.categoria;
-        if (tipo === 'GASTO' && t.metaId) document.getElementById('t-meta-gasto').value = String(t.metaId);
+        if (tipo === 'GASTO' && t.metaId) {
+            document.getElementById('t-meta-gasto').value = String(t.metaId);
+            document.getElementById('t-fecha-meta').value = t.fecha;
+        }
+    } else if (metaIdParaGasto) {
+        document.getElementById('t-meta-gasto').value = String(metaIdParaGasto);
     }
+    actualizarCampoFechaGasto();
 
     document.getElementById('modal-transaccion').classList.remove('hidden');
     document.getElementById('t-descripcion').focus();
@@ -533,6 +593,47 @@ async function cancelarRecurrencia(transaccionId) {
 
 function editarTransaccion(id) {
     abrirModalTransaccion(id);
+}
+
+// Editar un abono a Meta ya registrado: a diferencia de editarTransaccion (modal genérico), acá
+// solo se puede tocar monto y fecha — descripción/categoría/a-qué-meta son derivados de la meta
+// y el backend los ignora en este camino (ver editarAbonoMeta en PeriodoServiceImpl).
+function abrirModalEditarAbono(id) {
+    const t = (periodoActual?.transacciones || []).find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('ea-id').value = t.id;
+    document.getElementById('ea-monto').value = t.monto;
+    document.getElementById('ea-fecha').value = t.fecha;
+    document.getElementById('modal-editar-abono-nombre').textContent = t.descripcion;
+    document.getElementById('modal-editar-abono').classList.remove('hidden');
+}
+
+function cerrarModalEditarAbono() {
+    document.getElementById('modal-editar-abono').classList.add('hidden');
+}
+
+async function guardarEdicionAbono(e) {
+    e.preventDefault();
+    const id = +document.getElementById('ea-id').value;
+    const t = (periodoActual?.transacciones || []).find(x => x.id === id);
+    if (!t) return;
+    const monto = +document.getElementById('ea-monto').value;
+    const fecha = document.getElementById('ea-fecha').value;
+    if (!fecha) { showToast('Elegí una fecha', 'error'); return; }
+    try {
+        await api.editarTransaccion(id, {
+            descripcion: t.descripcion,
+            monto,
+            tipo: 'META',
+            categoria: t.categoria,
+            fecha,
+        });
+        cerrarModalEditarAbono();
+        await cargarPeriodo();
+        showToast('Abono actualizado');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
 function cerrarModalTransaccion() {
@@ -730,7 +831,7 @@ function renderTabla() {
                     <div class="tx-row-right">
                         <div class="tx-row-monto ${t.tipo === 'INGRESO' ? 'income' : esMeta ? 'meta' : esInversion ? 'inversion' : 'expense'}">${t.tipo === 'INGRESO' ? '+' : '-'} ${fmt(t.monto)}</div>
                         ${periodoActual.cerrado || modoSeleccion ? '' : `
-                            ${esMeta ? '' : `<button class="btn-icon" onclick="editarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>`}
+                            <button class="btn-icon" onclick="${esMeta ? `abrirModalEditarAbono(${t.id})` : `editarTransaccion(${t.id})`}"><span class="material-symbols-outlined" style="font-size:18px">edit</span></button>
                             <button class="btn-icon" onclick="eliminarTransaccion(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">delete</span></button>`}
                     </div>
                 </div>`;
@@ -816,39 +917,67 @@ async function eliminarSeleccionadas() {
 
 async function onAgregarTransaccion(e) {
     e.preventDefault();
-    const anio = +document.getElementById('periodo-anio').value;
-    const mes = +document.getElementById('periodo-mes').value;
+    const anioActual = +document.getElementById('periodo-anio').value;
+    const mesActual = +document.getElementById('periodo-mes').value;
 
     if (document.getElementById('t-tipo').value === 'META') {
         const metaId = document.getElementById('t-meta').value;
         const monto = +document.getElementById('t-monto').value;
         if (!metaId) { showToast('Seleccioná a qué meta abonar', 'error'); return; }
+        // "Repetir esta transacción" tildado en una Meta = mismo endpoint que "Automatizar
+        // aportes" desde la tarjeta de la meta — no un abono único. automatizarMeta ya se
+        // encarga de actualizar el monto si esa meta ya tenía una automatización activa, y de
+        // generar el abono de este mes de inmediato.
+        const automatizar = document.getElementById('t-repetir').checked;
         try {
-            await api.abonarMeta(+metaId, monto);
-            periodoActual = await api.getPeriodo(anio, mes);
+            if (automatizar) {
+                const dia = +document.getElementById('t-dia').value;
+                const diasEnMes = new Date(anioActual, mesActual, 0).getDate();
+                if (!dia || dia < 1 || dia > diasEnMes) {
+                    showToast(`El día debe estar entre 1 y ${diasEnMes}`, 'error');
+                    return;
+                }
+                await api.automatizarMeta(+metaId, monto, dia);
+            } else {
+                await api.abonarMeta(+metaId, monto);
+            }
+            periodoActual = await api.getPeriodo(anioActual, mesActual);
             renderPeriodo();
             document.getElementById('t-monto').value = '';
             cerrarModalTransaccion();
-            showToast('Abono registrado');
+            showToast(automatizar ? 'Abono automático activado' : 'Abono registrado');
         } catch (err) {
             showToast(err.message, 'error');
         }
         return;
     }
 
-    const dia = +document.getElementById('t-dia').value;
-
     const categoria = document.getElementById('t-categoria').value;
     if (!categoria) { showToast('Seleccioná una categoría', 'error'); return; }
 
-    // Validar día en el mes
-    const diasEnMes = new Date(anio, mes, 0).getDate();
-    if (dia < 1 || dia > diasEnMes) {
-        showToast(`El día debe estar entre 1 y ${diasEnMes}`, 'error');
-        return;
-    }
+    const id = document.getElementById('t-id').value;
+    const metaGastoId = document.getElementById('t-tipo').value === 'GASTO' ? document.getElementById('t-meta-gasto').value : '';
 
-    const fecha = `${anio}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    // Un Gasto vinculado a una meta puede ser de cualquier mes (calendario completo, como
+    // Abonar) — el período al que se agrega sale de esa fecha, no del que se esté mirando
+    // arriba. Sin vínculo, sigue como siempre: "Día del mes" dentro del período actual.
+    let anio, mes, fecha;
+    if (metaGastoId) {
+        fecha = document.getElementById('t-fecha-meta').value;
+        if (!fecha) { showToast('Elegí una fecha para el gasto', 'error'); return; }
+        anio = +fecha.slice(0, 4);
+        mes = +fecha.slice(5, 7);
+    } else {
+        anio = anioActual;
+        mes = mesActual;
+        const dia = +document.getElementById('t-dia').value;
+        const diasEnMes = new Date(anio, mes, 0).getDate();
+        if (dia < 1 || dia > diasEnMes) {
+            showToast(`El día debe estar entre 1 y ${diasEnMes}`, 'error');
+            return;
+        }
+        fecha = `${anio}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    }
 
     const dto = {
         descripcion: document.getElementById('t-descripcion').value,
@@ -857,11 +986,7 @@ async function onAgregarTransaccion(e) {
         categoria,
         fecha,
     };
-    if (dto.tipo === 'GASTO') {
-        const metaGastoId = document.getElementById('t-meta-gasto').value;
-        dto.metaId = metaGastoId ? +metaGastoId : null;
-    }
-    const id = document.getElementById('t-id').value;
+    if (dto.tipo === 'GASTO') dto.metaId = metaGastoId ? +metaGastoId : null;
     // El checkbox solo está visible para crear una transacción nueva o para editar una que
     // todavía no es recurrente (ver abrirModalTransaccion) — en ambos casos vale leerlo igual.
     dto.repetirTodosLosMeses = document.getElementById('t-repetir').checked;
@@ -878,15 +1003,25 @@ async function onAgregarTransaccion(e) {
     }
     try {
         if (id) {
+            // Editar nunca mueve la transacción de período (aunque se le cambie la fecha) — se
+            // recarga el período que se está mirando, como siempre.
             await api.editarTransaccion(+id, dto);
-        } else {
-            await api.agregarTransaccion(anio, mes, dto);
-        }
-        periodoActual = await api.getPeriodo(anio, mes);
-        renderPeriodo();
-        if (id) {
+            periodoActual = await api.getPeriodo(anioActual, mesActual);
+            renderPeriodo();
             cerrarModalTransaccion();
         } else {
+            await api.agregarTransaccion(anio, mes, dto);
+            if (anio !== anioActual || mes !== mesActual) {
+                // El gasto de meta quedó en un mes distinto al que se estaba mirando — se salta
+                // a ese período para que se vea reflejado de inmediato, en vez de que parezca
+                // que no se guardó.
+                document.getElementById('periodo-anio').value = String(anio);
+                document.getElementById('periodo-mes').value = String(mes);
+                await cargarPeriodo();
+            } else {
+                periodoActual = await api.getPeriodo(anio, mes);
+                renderPeriodo();
+            }
             // Resetear solo descripción y monto, mantener tipo/categoría/día
             document.getElementById('t-descripcion').value = '';
             document.getElementById('t-monto').value = '';

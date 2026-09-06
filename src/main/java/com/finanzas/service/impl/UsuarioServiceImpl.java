@@ -7,6 +7,10 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 @Service
 @Transactional
 public class UsuarioServiceImpl implements UsuarioService {
@@ -33,5 +37,17 @@ public class UsuarioServiceImpl implements UsuarioService {
     public Usuario obtenerPorGoogleId(String googleId) {
         return usuarioRepo.findByGoogleId(googleId)
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + googleId));
+    }
+
+    @Override
+    public void marcarTourVisto(Long usuarioId, String seccion) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + usuarioId));
+        Set<String> vistos = usuario.getToursVistos() == null || usuario.getToursVistos().isBlank()
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(Arrays.asList(usuario.getToursVistos().split(",")));
+        vistos.add(seccion);
+        usuario.setToursVistos(String.join(",", vistos));
+        usuarioRepo.save(usuario);
     }
 }

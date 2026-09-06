@@ -2,6 +2,7 @@ package com.finanzas.controller;
 
 import com.finanzas.dto.AbonoMetaDTO;
 import com.finanzas.dto.AbonoRequestDTO;
+import com.finanzas.dto.AutomatizarMetaRequestDTO;
 import com.finanzas.dto.MetaFinancieraDTO;
 import com.finanzas.dto.MetasRitmoDTO;
 import com.finanzas.service.MetaFinancieraService;
@@ -10,9 +11,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/metas")
@@ -83,9 +82,9 @@ public class MetaFinancieraController {
     }
 
     @PostMapping("/{id}/automatizar")
-    public ResponseEntity<MetaFinancieraDTO> automatizar(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
+    public ResponseEntity<MetaFinancieraDTO> automatizar(@PathVariable Long id, @RequestBody AutomatizarMetaRequestDTO body) {
         Long uid = UsuarioHelper.usuarioActual(usuarioService).getId();
-        return ResponseEntity.ok(metaService.automatizarAbono(id, body.get("monto"), uid));
+        return ResponseEntity.ok(metaService.automatizarAbono(id, body.getMonto(), body.getDia(), uid));
     }
 
     @PostMapping("/{id}/pausar-automatizacion")

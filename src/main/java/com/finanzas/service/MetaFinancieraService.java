@@ -17,7 +17,9 @@ public interface MetaFinancieraService {
     MetaFinancieraDTO abonarMonto(Long id, BigDecimal monto, LocalDate fecha, Long usuarioId);
     List<AbonoMetaDTO> listarAbonos(Long metaId, Long usuarioId);
     void eliminarAbono(Long metaId, Long abonoId, Long usuarioId);
-    MetaFinancieraDTO automatizarAbono(Long id, BigDecimal monto, Long usuarioId);
+    // dia: null usa el día de hoy (comportamiento de siempre) — permite elegir cualquier día del
+    // mes para el abono automático en vez de quedar fijo al día en que se activó.
+    MetaFinancieraDTO automatizarAbono(Long id, BigDecimal monto, Integer dia, Long usuarioId);
     MetaFinancieraDTO pausarAutomatizacion(Long id, Long usuarioId);
     MetasRitmoDTO obtenerResumenRitmo(Long usuarioId);
 }

@@ -42,6 +42,13 @@ async function initPresupuesto() {
     metasDisponibles = metasDisponibles.filter(m => m.estado === 'ACTIVA');
 
     await cargarPresupuesto();
+
+    iniciarTour('PRESUPUESTO', [
+        { selector: '#presupuesto-empty', titulo: 'Configurá tu presupuesto', texto: 'Definí tu sueldo y cómo repartirlo para ver de un vistazo cómo vas gastando cada mes.' },
+        { selector: '.np-analisis-regla', titulo: 'Tu regla de reparto', texto: 'Comparamos lo que gastaste contra la regla que elegiste (ej. 50/30/20).' },
+        { selector: '#pie-chart', titulo: 'Distribución global', texto: 'De un vistazo, cómo se reparte tu plata entre categorías.' },
+        { selector: '#btn-editar-presupuesto', titulo: 'Ajustalo cuando quieras', texto: 'Cambiá el sueldo, la regla o cómo repartís cada categoría.' },
+    ]);
 }
 
 async function cargarPresupuesto() {

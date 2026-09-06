@@ -6,12 +6,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface TransaccionRepository extends JpaRepository<Transaccion, Long> {
     List<Transaccion> findByPeriodoId(Long periodoId);
     List<Transaccion> findByPeriodoIdAndTipo(Long periodoId, TipoTransaccion tipo);
     List<Transaccion> findByTransaccionFijaId(Long transaccionFijaId);
+
+    // Abonos a Meta con fecha <= hoy, para aplicar (sumar a montoAcumulado) los que ya "pasaron"
+    // pero todavía no se aplicaron — ver aplicarAbonosVencidos en PeriodoServiceImpl.
+    List<Transaccion> findByPeriodo_Usuario_IdAndTipoAndMetaIsNotNullAndFechaLessThanEqual(
+            Long usuarioId, TipoTransaccion tipo, LocalDate fecha);
     List<Transaccion> findByCategoriaAndTipoAndPeriodo_Usuario_Id(String categoria, TipoTransaccion tipo, Long usuarioId);
     long countByCategoriaAndTipoAndPeriodo_Usuario_Id(String categoria, TipoTransaccion tipo, Long usuarioId);
 

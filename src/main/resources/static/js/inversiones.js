@@ -34,6 +34,13 @@ async function initInversiones() {
     }, 60000);
 
     await cargarInversiones();
+
+    iniciarTour('INVERSIONES', [
+        { selector: '#btn-nueva-inversion', titulo: 'Registrá una inversión', texto: 'Acciones, CEDEARs, bonos, oro o fondos — con cotización en vivo cuando aplica.' },
+        { selector: '.inv-hero', titulo: 'Valor total de tu cartera', texto: 'La suma de todas tus posiciones, actualizada con la cotización más reciente.' },
+        { selector: '#inv-posiciones-list', titulo: 'Tus posiciones', texto: 'Agrupadas por activo — tocá "Ver aportes" para ver cada compra por separado.' },
+        { selector: '#btn-graficos-inv', titulo: 'Gráficos', texto: 'Buscá cualquier símbolo y mirá su gráfico, o abrí el de una posición puntual desde su tarjeta.' },
+    ]);
 }
 
 function toggleInvFilterMenu(e) {

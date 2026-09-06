@@ -241,6 +241,7 @@ body.sidebar-collapsed .theme-toggle-btn { justify-content: center; padding: 10p
 .content {
     margin-left: 220px;
     flex: 1;
+    min-width: 0;
     padding: 32px;
     max-width: 1200px;
     transition: margin-left .2s ease;
@@ -864,6 +865,12 @@ body[data-dark-mode="true"] .np-form .form-group select {
     margin-top: 8px;
 }
 .meta-detalle-faltan { color: var(--primary); font-weight: 700; }
+
+.meta-detalle-action-botones {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
 
 .meta-detalle-action {
     margin-top: 24px;
@@ -3116,6 +3123,31 @@ body[data-dark-mode="true"] .stat-card-hero .value { color: #fff; }
     h1 { font-size: 20px; }
     .stat-card .value { font-size: 22px; }
     .stat-card-hero .value { font-size: 30px !important; }
+
+    /* Transacciones: tabs + botón Seleccionar en dos líneas */
+    .tx-tabs-row {
+        flex-wrap: wrap;
+    }
+    .tx-tabs-row .np-tabs {
+        flex-basis: 100%;
+    }
+    .tx-select-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Barra de selección múltiple: stack vertical */
+    .tx-seleccion-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .tx-seleccion-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .tx-seleccion-actions .btn {
+        flex: 1;
+    }
 }
 
 @media (max-width: 480px) {
@@ -3338,3 +3370,80 @@ body[data-dark-mode="true"] .stat-card-hero .value { color: #fff; }
     flex-direction: column;
 }
 .tv-modal-content .tv-chart-container { flex: 1; height: auto; }
+
+/* Tour guiado de onboarding — spotlight + tooltip señalando elementos reales de la UI, en vez
+   de un modal genérico. Un click en cualquier parte del backdrop (incluso "dentro" del agujero
+   visual) salta el tour — no hay interacción con el elemento señalado durante el paso. */
+#tour-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 260;
+    cursor: pointer;
+}
+
+#tour-spotlight {
+    position: fixed;
+    z-index: 260;
+    border-radius: 14px;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, .6);
+    pointer-events: none;
+    transition: left .3s ease, top .3s ease, width .3s ease, height .3s ease;
+}
+
+.tour-tooltip {
+    position: fixed;
+    z-index: 261;
+    width: 300px;
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--np-elevated-bg);
+    box-shadow: var(--np-elevated-shadow);
+}
+
+.tour-step-counter {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--np-text-muted);
+    margin-bottom: 6px;
+}
+
+.tour-tooltip-titulo {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--np-text-strong);
+    margin-bottom: 6px;
+}
+
+.tour-tooltip-texto {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.tour-tooltip-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tour-tooltip-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.tour-tooltip-saltar {
+    border: none;
+    background: transparent;
+    color: var(--np-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 4px;
+}
+.tour-tooltip-saltar:hover { color: var(--np-text-strong); }

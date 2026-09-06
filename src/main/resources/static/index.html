@@ -252,6 +252,14 @@
                             </div>
                         </div>
 
+                        <div class="form-group hidden" id="t-fecha-meta-grupo">
+                            <label class="np-label-sm">Fecha del gasto</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">event</span>
+                                <div id="t-fecha-meta" class="custom-date"></div>
+                            </div>
+                        </div>
+
                         <label class="mapeo-recordar" id="t-repetir-grupo">
                             <input type="checkbox" id="t-repetir"> Repetir esta transacción
                         </label>
@@ -279,6 +287,37 @@
                             <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">check_circle</span>
                             <span id="tx-submit-btn-label">Registrar Transacción</span>
                         </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="modal-editar-abono" class="modal hidden">
+                <div class="modal-content" style="max-width:380px">
+                    <div class="modal-header">
+                        <h2>Editar abono</h2>
+                        <button type="button" id="btn-cerrar-editar-abono" class="btn-icon" style="font-size:20px">✕</button>
+                    </div>
+                    <p id="modal-editar-abono-nombre" style="color:var(--text-muted);margin-bottom:12px"></p>
+                    <form id="form-editar-abono">
+                        <input type="hidden" id="ea-id">
+                        <div class="form-group">
+                            <label class="np-label-sm">Monto</label>
+                            <div class="np-inset tx-field tx-field-amount">
+                                <span class="tx-amount-prefix">$</span>
+                                <input type="number" id="ea-monto" min="0.01" step="0.01" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="np-label-sm">Fecha</label>
+                            <div class="np-flat tx-field">
+                                <span class="material-symbols-outlined tx-field-icon">event</span>
+                                <div id="ea-fecha" class="custom-date"></div>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                            <button type="button" id="btn-cancelar-editar-abono" class="btn btn-secondary">Cancelar</button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -715,7 +754,10 @@
                                         <h3>¿Listo para sumar?</h3>
                                         <p>Aumentá el monto acumulado con un click.</p>
                                     </div>
-                                    <button type="button" class="np-button-dark np-pill" id="btn-abonar-desde-detalle">+ Abonar Fondos</button>
+                                    <div class="meta-detalle-action-botones">
+                                        <button type="button" class="np-button np-pill" id="btn-gasto-desde-detalle">+ Registrar Gasto</button>
+                                        <button type="button" class="np-button-dark np-pill" id="btn-abonar-desde-detalle">+ Abonar Fondos</button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="meta-detalle-side">
@@ -948,6 +990,7 @@
 
     <script src="js/api.js"></script>
     <script src="js/utils.js"></script>
+    <script src="js/tour.js"></script>
     <script src="js/transacciones.js"></script>
     <script src="js/presupuesto.js"></script>
     <script src="js/metas.js"></script>

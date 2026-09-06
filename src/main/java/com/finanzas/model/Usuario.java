@@ -19,6 +19,12 @@ public class Usuario {
     @Column(nullable = false)
     private String nombre;
 
+    // CSV de secciones (DASHBOARD, TRANSACCIONES, PRESUPUESTO, METAS, INVERSIONES) cuyo tour de
+    // onboarding ya se le mostro a este usuario — persistido acá (no en localStorage) para que no
+    // se resetee si cambia de dispositivo, ya que está atado al mismo usuario de Google logueado.
+    @Column(nullable = true)
+    private String toursVistos;
+
     public Usuario() {}
 
     public Long getId() { return id; }
@@ -28,4 +34,6 @@ public class Usuario {
     public void setEmail(String email) { this.email = email; }
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
+    public String getToursVistos() { return toursVistos; }
+    public void setToursVistos(String toursVistos) { this.toursVistos = toursVistos; }
 }
