@@ -4,9 +4,4 @@ gestorfinanzas.duckdns.org {
         health_interval 5s
     }
 
-    handle_errors 502 503 504 {
-        root * /srv/mantenimiento
-        rewrite * /index.html
-        file_server
-    }
 }
