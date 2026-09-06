@@ -66,6 +66,7 @@ document.addEventListener('click', e => {
 const currentUserPromise = fetch('/api/auth/me')
     .then(r => {
         if (r.status === 401 || r.status === 403) { window.location.href = '/login'; return null; }
+        if (!r.ok) return null;
         return r.json();
     })
     .catch(() => null);
