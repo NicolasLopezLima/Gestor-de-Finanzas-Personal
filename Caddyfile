@@ -1,0 +1,12 @@
+gestorfinanzas.duckdns.org {
+    reverse_proxy app:8080 {
+        health_uri /actuator/health
+        health_interval 5s
+    }
+
+    handle_errors 502 503 504 {
+        root * /srv/mantenimiento
+        rewrite * /index.html
+        file_server
+    }
+}

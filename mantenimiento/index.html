@@ -1,0 +1,250 @@
+<title>FinanzasApp — Actualizando</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600&display=swap">
+
+<style>
+:root {
+    --bg:          #EEF0F5;
+    --shadow-light:#FFFFFF;
+    --shadow-dark: rgba(15,23,42,.13);
+    --text:        #0B1C30;
+    --muted:       #64748B;
+    --emerald:     #10B981;
+    --navy:        #0F172A;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg:          #1A2033;
+        --shadow-light:rgba(255,255,255,.05);
+        --shadow-dark: rgba(0,0,0,.55);
+        --text:        #E5E9F0;
+        --muted:       #94A3B8;
+    }
+}
+:root[data-theme="dark"] {
+    --bg:          #1A2033;
+    --shadow-light:rgba(255,255,255,.05);
+    --shadow-dark: rgba(0,0,0,.55);
+    --text:        #E5E9F0;
+    --muted:       #94A3B8;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+/* ── Card flotante ── */
+.card {
+    background: var(--bg);
+    border-radius: 28px;
+    padding: 48px 40px 40px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    box-shadow:
+        10px 10px 24px var(--shadow-dark),
+        -10px -10px 24px var(--shadow-light);
+}
+
+/* ── Ícono ── */
+.icon-wrap {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow:
+        8px 8px 18px var(--shadow-dark),
+        -8px -8px 18px var(--shadow-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 32px;
+    animation: rock 2.4s ease-in-out infinite;
+}
+
+.icon-inner {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow:
+        inset 5px 5px 12px var(--shadow-dark),
+        inset -5px -5px 12px var(--shadow-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-inner svg {
+    width: 34px;
+    height: 34px;
+    color: var(--emerald);
+}
+
+@keyframes rock {
+    0%,100% { transform: rotate(-7deg); }
+    50%      { transform: rotate(7deg); }
+}
+
+/* ── Texto ── */
+h1 {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.4px;
+    text-wrap: balance;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    text-wrap: balance;
+    margin-bottom: 36px;
+}
+
+/* ── Barra de progreso ── */
+.progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 99px;
+    background: var(--bg);
+    box-shadow:
+        inset 4px 4px 8px var(--shadow-dark),
+        inset -4px -4px 8px var(--shadow-light);
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--navy), var(--emerald));
+    transition: width .4s ease;
+}
+
+.progress-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 36px;
+    letter-spacing: .04em;
+}
+
+/* ── Brand ── */
+.brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.brand-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--bg);
+    box-shadow:
+        3px 3px 8px var(--shadow-dark),
+        -3px -3px 8px var(--shadow-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--navy);
+}
+
+.brand-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icon-wrap { animation: none; }
+}
+</style>
+
+<div class="card">
+    <div class="icon-wrap" aria-hidden="true">
+        <div class="icon-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z"/>
+            </svg>
+        </div>
+    </div>
+
+    <h1>Instalando mejoras</h1>
+    <p class="subtitle">La app vuelve en unos minutos.<br>Tus datos están a salvo.</p>
+
+    <div class="progress-track">
+        <div class="progress-fill" id="bar"></div>
+    </div>
+    <span class="progress-pct" id="label">0%</span>
+
+    <div class="brand">
+        <div class="brand-dot">F</div>
+        <span class="brand-name">FinanzasApp</span>
+    </div>
+</div>
+
+<script>
+    const bar   = document.getElementById('bar');
+    const label = document.getElementById('label');
+
+    const TRAMOS = [
+        { hasta: 18,  ms: 18000 },
+        { hasta: 35,  ms: 40000 },
+        { hasta: 36,  ms: 18000 },
+        { hasta: 60,  ms: 35000 },
+        { hasta: 61,  ms: 25000 },
+        { hasta: 85,  ms: 30000 },
+        { hasta: 87,  ms: 20000 },
+        { hasta: 99,  ms: 8000  },
+        { hasta: 100, ms: 4000  },
+    ];
+
+    let pct = 0, tramoIdx = 0, startTime = null, startPct = 0, raf;
+
+    function animar(ts) {
+        if (!startTime) startTime = ts;
+        const tramo = TRAMOS[tramoIdx];
+        const t = Math.min((ts - startTime) / tramo.ms, 1);
+        const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        pct = startPct + (tramo.hasta - startPct) * eased;
+        bar.style.width = pct.toFixed(1) + '%';
+        label.textContent = Math.floor(pct) + '%';
+        if (t >= 1) {
+            tramoIdx++;
+            if (tramoIdx >= TRAMOS.length) {
+                label.textContent = '¡Listo!';
+                setTimeout(() => location.reload(), 800);
+                return;
+            }
+            startTime = null;
+            startPct = pct;
+        }
+        raf = requestAnimationFrame(animar);
+    }
+    raf = requestAnimationFrame(animar);
+
+    setInterval(() => {
+        fetch('/actuator/health', { method: 'HEAD' })
+            .then(r => { if (r.ok) { cancelAnimationFrame(raf); location.reload(); } })
+            .catch(() => {});
+    }, 30000);
+</script>

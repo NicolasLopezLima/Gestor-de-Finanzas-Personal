@@ -241,6 +241,7 @@ body.sidebar-collapsed .theme-toggle-btn { justify-content: center; padding: 10p
 .content {
     margin-left: 220px;
     flex: 1;
+    min-width: 0;
     padding: 32px;
     max-width: 1200px;
     transition: margin-left .2s ease;
@@ -3122,6 +3123,31 @@ body[data-dark-mode="true"] .stat-card-hero .value { color: #fff; }
     h1 { font-size: 20px; }
     .stat-card .value { font-size: 22px; }
     .stat-card-hero .value { font-size: 30px !important; }
+
+    /* Transacciones: tabs + botón Seleccionar en dos líneas */
+    .tx-tabs-row {
+        flex-wrap: wrap;
+    }
+    .tx-tabs-row .np-tabs {
+        flex-basis: 100%;
+    }
+    .tx-select-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Barra de selección múltiple: stack vertical */
+    .tx-seleccion-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .tx-seleccion-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .tx-seleccion-actions .btn {
+        flex: 1;
+    }
 }
 
 @media (max-width: 480px) {
