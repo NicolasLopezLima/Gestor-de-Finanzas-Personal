@@ -32,8 +32,21 @@ async function initMetas() {
     await cargarMetas();
 
     iniciarTour('METAS', [
-        { selector: '#metas-grid', titulo: 'Tus metas de ahorro', texto: 'Cada tarjeta muestra cuánto aportaste, cuánto ya gastaste de eso y el disponible real.' },
-        { selector: '#metas-grid .meta-add-card', titulo: 'Nueva meta', texto: 'Definí un objetivo con monto y fecha límite, y hacé seguimiento de tu progreso.' },
+        {
+            selector: '#metas-grid .meta-add-card',
+            titulo: 'Creá una meta',
+            texto: 'Tocá acá para crear un objetivo de ahorro. Por ejemplo: "Vacaciones — $5.000 para diciembre". Cada meta tiene un monto objetivo y una fecha límite para que puedas hacer seguimiento de tu progreso.'
+        },
+        {
+            selector: '#metas-grid .meta-card',
+            titulo: 'Aboná a tu meta',
+            texto: 'Tocá una meta para ver su detalle y registrar un abono. Por ejemplo, si ahorrás $500 este mes los aportás acá y la barra de progreso avanza. También podés automatizar los aportes para que se hagan solos cada mes.'
+        },
+        {
+            selector: '#metas-grid .meta-kebab-btn',
+            titulo: 'Eliminá la meta de ejemplo',
+            texto: 'Tocá los tres puntos (⋮) de la meta "Vacaciones (ejemplo)" y seleccioná Eliminar. Así aprendés a gestionar tus metas y dejás la app lista para las tuyas propias.'
+        },
     ]);
 }
 

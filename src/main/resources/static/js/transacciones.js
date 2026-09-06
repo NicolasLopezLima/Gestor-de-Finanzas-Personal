@@ -254,12 +254,48 @@ async function initTransacciones() {
     await cargarPeriodo();
     programarActualizacionMedianoche();
 
-    iniciarTour('TRANSACCIONES', [
-        { selector: '#btn-nueva-transaccion', titulo: 'Cargá un movimiento', texto: 'Con este botón agregás un ingreso, un gasto, un abono a una meta o un aporte a una inversión.' },
-        { selector: '#btn-filtros', titulo: 'Filtrá lo que buscás', texto: 'Categoría y rango de fechas, todo en un mismo lugar.' },
-        { selector: '#tx-tabs', titulo: 'Por tipo de movimiento', texto: 'Todos, Ingresos, Gastos, Metas o Inversión — tocá la flecha para ver más.' },
-        { selector: '#tabla-transacciones', titulo: 'Tu historial', texto: 'Acá vas a ver todos los movimientos del mes, más recientes primero.' },
-    ]);
+    const u = await currentUserPromise;
+    if (u && !(u.toursVistos || []).includes('TRANSACCIONES')) {
+        const now = new Date();
+        const a = now.getFullYear(), m = now.getMonth() + 1;
+        const hoy = now.toISOString().slice(0, 10);
+        let txEjemploIds = [];
+        try {
+            const [ing, gas] = await Promise.all([
+                api.agregarTransaccion(a, m, { descripcion: 'Sueldo (ejemplo)', monto: 2000, tipo: 'INGRESO', fecha: hoy, categoria: null, repetirTodosLosMeses: false }),
+                api.agregarTransaccion(a, m, { descripcion: 'Supermercado (ejemplo)', monto: 450, tipo: 'GASTO', fecha: hoy, categoria: null, repetirTodosLosMeses: false }),
+            ]);
+            txEjemploIds = [ing.id, gas.id];
+            await cargarPeriodo();
+        } catch {}
+
+        const limpiar = async () => {
+            await Promise.allSettled(txEjemploIds.map(id => api.eliminarTransaccion(id)));
+            await cargarPeriodo();
+        };
+
+        iniciarTour('TRANSACCIONES', [
+            {
+                selector: '#btn-nueva-transaccion',
+                titulo: 'Registrá un movimiento',
+                texto: 'Tocá este botón para cargar cualquier movimiento: un sueldo, un café, un abono a una meta o un aporte a tu inversión. Podés elegir si se repite automáticamente cada mes, ideal para el alquiler o el gym.'
+            },
+            {
+                selector: '#summary-bar',
+                titulo: 'Tu disponibilidad de dinero',
+                texto: 'Esta barra te muestra cuánto entraste, cuánto gastaste y cuánto te queda disponible en el mes. Los datos de ejemplo muestran un sueldo de $2.000 y un gasto de $450 — te quedan $1.550 disponibles.'
+            },
+            {
+                selector: '#btn-descargar-plantilla',
+                titulo: 'Exportá tu historial',
+                texto: 'Con este botón descargás todas tus transacciones en Excel. También podés importar desde un archivo para cargar muchos movimientos de una vez.',
+                accion: { label: 'Limpiar datos de ejemplo', id: 'tour-btn-limpiar' }
+            },
+        ], {
+            onSaltar: limpiar,
+            onTerminar: limpiar,
+        });
+    }
 }
 
 function actualizarCategorias(tipo) {

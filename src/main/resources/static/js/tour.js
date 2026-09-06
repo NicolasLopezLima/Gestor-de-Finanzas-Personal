@@ -23,27 +23,28 @@ function resolverSelectorTour(selector) {
 
 // pasos: [{ selector: '#id' | ['#a', '#b'] | null, titulo, texto }]
 // selector null = paso de cierre, tooltip centrado sin spotlight.
-async function iniciarTour(seccion, pasos) {
+// opts.onSaltar: callback cuando el usuario clickea "Saltar"
+// opts.onTerminar: callback cuando el usuario completa el tour con "Siguiente"
+async function iniciarTour(seccion, pasos, opts = {}) {
+    return; // TODO: tour en desarrollo, desactivado temporalmente
     const u = await currentUserPromise;
     if (!u || (u.toursVistos || []).includes(seccion) || tourActivo) return;
 
     const pasosVisibles = pasos.filter(p => p.selector === null || resolverSelectorTour(p.selector));
     if (!pasosVisibles.length) {
-        // Nada que señalar en este estado de la página (ej. sección vacía) — se marca visto
-        // igual para no seguir intentando mostrarlo en cada visita.
         api.marcarTourVisto(seccion).catch(() => {});
         return;
     }
 
     montarTourDOM();
-    tourActivo = { seccion, pasos: pasosVisibles, indice: 0 };
+    tourActivo = { seccion, pasos: pasosVisibles, indice: 0, onSaltar: opts.onSaltar, onTerminar: opts.onTerminar };
     renderPasoTour();
 }
 
 function montarTourDOM() {
     const backdrop = document.createElement('div');
     backdrop.id = 'tour-backdrop';
-    backdrop.addEventListener('click', terminarTour);
+    backdrop.addEventListener('click', saltarTour);
     document.body.appendChild(backdrop);
 
     const spotlight = document.createElement('div');
@@ -86,6 +87,9 @@ function renderPasoTour() {
     }
 
     const esUltimo = indice === pasos.length - 1;
+    const accionHtml = (esUltimo && paso.accion)
+        ? `<button type="button" class="np-button np-button-dark np-pill np-pill-sm" data-tour="accion">${paso.accion.label}</button>`
+        : `<button type="button" class="np-button np-button-dark np-pill np-pill-sm" data-tour="siguiente">${esUltimo ? 'Entendido' : 'Siguiente'}</button>`;
     tooltip.innerHTML = `
         <div class="tour-step-counter">${indice + 1}/${pasos.length}</div>
         <h3 class="tour-tooltip-titulo">${paso.titulo}</h3>
@@ -93,13 +97,14 @@ function renderPasoTour() {
         <div class="tour-tooltip-actions">
             ${indice > 0 ? '<button type="button" class="np-button np-pill np-pill-sm" data-tour="anterior">Anterior</button>' : '<span></span>'}
             <div class="tour-tooltip-actions-right">
-                <button type="button" class="tour-tooltip-saltar" data-tour="saltar">Saltar</button>
-                <button type="button" class="np-button np-button-dark np-pill np-pill-sm" data-tour="siguiente">${esUltimo ? 'Entendido' : 'Siguiente'}</button>
+                ${!esUltimo ? '<button type="button" class="tour-tooltip-saltar" data-tour="saltar">Saltar</button>' : ''}
+                ${accionHtml}
             </div>
         </div>`;
     tooltip.querySelector('[data-tour="anterior"]')?.addEventListener('click', () => avanzarTour(-1));
-    tooltip.querySelector('[data-tour="siguiente"]').addEventListener('click', () => avanzarTour(1));
-    tooltip.querySelector('[data-tour="saltar"]').addEventListener('click', terminarTour);
+    tooltip.querySelector('[data-tour="siguiente"]')?.addEventListener('click', () => avanzarTour(1));
+    tooltip.querySelector('[data-tour="saltar"]')?.addEventListener('click', saltarTour);
+    tooltip.querySelector('[data-tour="accion"]')?.addEventListener('click', terminarTour);
 
     if (target) {
         posicionarPanelFlotante(tooltip, target, true);
@@ -124,10 +129,20 @@ function avanzarTour(delta) {
     renderPasoTour();
 }
 
-function terminarTour() {
+function saltarTour() {
     if (!tourActivo) return;
-    const { seccion } = tourActivo;
+    const { seccion, onSaltar } = tourActivo;
     desmontarTourDOM();
     tourActivo = null;
     api.marcarTourVisto(seccion).catch(() => {});
+    if (onSaltar) onSaltar();
+}
+
+function terminarTour() {
+    if (!tourActivo) return;
+    const { seccion, onTerminar } = tourActivo;
+    desmontarTourDOM();
+    tourActivo = null;
+    api.marcarTourVisto(seccion).catch(() => {});
+    if (onTerminar) onTerminar();
 }

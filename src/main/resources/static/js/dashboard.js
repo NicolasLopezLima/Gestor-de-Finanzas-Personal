@@ -1,8 +1,65 @@
 const PASOS_TOUR_DASHBOARD = [
-    { selector: '#dashboard-cards', titulo: 'Tu pantalla principal', texto: 'Acá ves tu balance disponible del mes y accesos rápidos a tus metas e inversiones.' },
-    { selector: ['.sidebar', '.bottom-nav'], titulo: 'Así navegás', texto: 'Desde acá entrás a Ingresos & Gastos, Presupuesto, Metas e Inversiones.' },
-    { selector: null, titulo: '¡Listo!', texto: 'Ya podés explorar cada sección — la primera vez que entres a cada una te mostramos un tour cortito como este.' },
+    {
+        selector: '.dash-balance-hero',
+        titulo: 'Tu balance del mes',
+        texto: 'Este es tu punto de partida. Si en el mes ganás $2.000 y gastás $1.200, tu balance disponible es $800. El anillo muestra ese número como porcentaje: en este caso ahorraste el 40% de tus ingresos.'
+    },
+    {
+        selector: '.dash-meta-card',
+        titulo: 'Tus metas de ahorro',
+        texto: 'Cada meta muestra cuánto juntaste y cuánto te falta. Por ejemplo, para "Vacaciones — objetivo $5.000": si acumulaste $1.200, la barra muestra 24%. Desde la sección Metas podés crear las tuyas.'
+    },
+    {
+        selector: '.stat-card',
+        titulo: 'Resumen de tu cartera',
+        texto: 'Estas tarjetas te dan un vistazo rápido: metas en curso, metas completadas y posiciones de inversión. Hacé click en Inversiones en el menú para ver los detalles de cada una.'
+    },
+    {
+        selector: ['.sidebar', '.bottom-nav'],
+        titulo: 'Navegación principal',
+        texto: 'Desde acá manejás todo: Ingresos & Gastos para registrar movimientos, Presupuesto para planificar por categoría, Metas para tus objetivos de ahorro, e Inversiones para tu cartera.'
+    },
+    {
+        selector: null,
+        titulo: '¡Listo para empezar!',
+        texto: 'Los datos que estás viendo son de ejemplo (sueldo $2.000, supermercado $450, ETF $500). Hacé click en "Limpiar datos" para borrarlos y empezar con los tuyos propios.',
+        accion: { label: 'Limpiar datos de ejemplo', id: 'tour-btn-limpiar' }
+    },
 ];
+
+let _tourEjemploIds = null;
+
+async function crearDatosEjemplo() {
+    const now = new Date();
+    const a = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const hoy = now.toISOString().slice(0, 10);
+
+    const [ingreso, gasto, meta, inversion] = await Promise.all([
+        api.agregarTransaccion(a, m, { descripcion: 'Sueldo (ejemplo)', monto: 2000, tipo: 'INGRESO', fecha: hoy, categoria: null, repetirTodosLosMeses: false }),
+        api.agregarTransaccion(a, m, { descripcion: 'Supermercado (ejemplo)', monto: 450, tipo: 'GASTO', fecha: hoy, categoria: null, repetirTodosLosMeses: false }),
+        api.crearMeta({ nombre: 'Vacaciones (ejemplo)', montoObjetivo: 5000, fechaFin: `${a}-12-31` }),
+        api.agregarInversion({ nombre: 'ETF (ejemplo)', tipo: 'ETF', fechaRegistro: hoy, montoInvertido: 500, porcentajeCartera: 100, notas: '', ticker: 'SPY', mercado: 'EXTERIOR', cantidad: 1 }),
+    ]);
+
+    _tourEjemploIds = {
+        transacciones: [ingreso.id, gasto.id],
+        metas: [meta.id],
+        inversiones: [inversion.id],
+    };
+}
+
+async function borrarDatosEjemplo() {
+    if (!_tourEjemploIds) return;
+    const { transacciones, metas, inversiones } = _tourEjemploIds;
+    await Promise.allSettled([
+        ...(transacciones || []).map(id => api.eliminarTransaccion(id)),
+        ...(metas || []).map(id => api.eliminarMeta(id)),
+        ...(inversiones || []).map(id => api.eliminarInversion(id)),
+    ]);
+    _tourEjemploIds = null;
+}
+window.borrarDatosEjemplo = borrarDatosEjemplo;
 
 const DASH_ICONS = {
     invertido: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
@@ -66,14 +123,25 @@ async function initDashboard() {
         && !(resumen.totalInvertido > 0);
 
     if (sinDatos) {
-        cards.innerHTML = emptyState({
-            icon: '<span class="material-symbols-outlined">waving_hand</span>',
-            title: '¡Bienvenido a FinanzasApp!',
-            text: 'Todavía no cargaste ningún movimiento. Empezá agregando tu primer ingreso o gasto del mes.',
-            actionLabel: '+ Agregar transacción',
-            actionOnClick: "navigateTo('transacciones')",
+        cards.innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:40px 0">Preparando tu demo…</p>`;
+        try {
+            await crearDatosEjemplo();
+        } catch {
+            cards.innerHTML = emptyState({
+                icon: '<span class="material-symbols-outlined">waving_hand</span>',
+                title: '¡Bienvenido a FinanzasApp!',
+                text: 'Empezá agregando tu primer ingreso o gasto del mes.',
+                actionLabel: '+ Agregar transacción',
+                actionOnClick: "navigateTo('transacciones')",
+            });
+            iniciarTour('DASHBOARD', PASOS_TOUR_DASHBOARD);
+            return;
+        }
+        await initDashboard();
+        iniciarTour('DASHBOARD', PASOS_TOUR_DASHBOARD, {
+            onSaltar: async () => { await borrarDatosEjemplo(); navigateTo('dashboard'); },
+            onTerminar: async () => { await borrarDatosEjemplo(); navigateTo('dashboard'); },
         });
-        iniciarTour('DASHBOARD', PASOS_TOUR_DASHBOARD);
         return;
     }
 

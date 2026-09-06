@@ -35,12 +35,51 @@ async function initInversiones() {
 
     await cargarInversiones();
 
-    iniciarTour('INVERSIONES', [
-        { selector: '#btn-nueva-inversion', titulo: 'Registrá una inversión', texto: 'Acciones, CEDEARs, bonos, oro o fondos — con cotización en vivo cuando aplica.' },
-        { selector: '.inv-hero', titulo: 'Valor total de tu cartera', texto: 'La suma de todas tus posiciones, actualizada con la cotización más reciente.' },
-        { selector: '#inv-posiciones-list', titulo: 'Tus posiciones', texto: 'Agrupadas por activo — tocá "Ver aportes" para ver cada compra por separado.' },
-        { selector: '#btn-graficos-inv', titulo: 'Gráficos', texto: 'Buscá cualquier símbolo y mirá su gráfico, o abrí el de una posición puntual desde su tarjeta.' },
-    ]);
+    const u = await currentUserPromise;
+    if (u && !(u.toursVistos || []).includes('INVERSIONES')) {
+        const hoy = new Date().toISOString().slice(0, 10);
+        let invEjemploId = null;
+        try {
+            const inv = await api.agregarInversion({ nombre: 'ETF (ejemplo)', tipo: 'ETF', fechaRegistro: hoy, montoInvertido: 500, porcentajeCartera: 100, notas: '', ticker: 'SPY', mercado: 'EXTERIOR', cantidad: 1 });
+            invEjemploId = inv.id;
+            await cargarInversiones();
+        } catch {}
+
+        const limpiar = async () => {
+            await Promise.allSettled([
+                invEjemploId ? api.eliminarInversion(invEjemploId) : Promise.resolve(),
+                window.borrarDatosEjemplo ? window.borrarDatosEjemplo() : Promise.resolve(),
+            ]);
+            await cargarInversiones();
+        };
+
+        iniciarTour('INVERSIONES', [
+            {
+                selector: '#btn-graficos-inv',
+                titulo: 'Gráficos de cotización',
+                texto: 'Tocá acá para ver la evolución histórica de cualquier activo. Buscá un símbolo como SPY, AAPL o GGAL, elegí el período y analizá su comportamiento antes de invertir.'
+            },
+            {
+                selector: '#inv-posiciones-list',
+                titulo: 'Datos de cada inversión',
+                texto: 'Cada tarjeta muestra el activo, cuánto invertiste, el valor actual con cotización en vivo y la ganancia o pérdida en porcentaje. El ejemplo muestra un ETF SPY con $500 invertidos.'
+            },
+            {
+                selector: '.inv-hero',
+                titulo: 'Resumen de tu cartera',
+                texto: 'Acá ves el total invertido, el valor actual de toda tu cartera y la variación global. Se actualizan automáticamente con las cotizaciones de mercado cada minuto.'
+            },
+            {
+                selector: null,
+                titulo: 'Limpiar datos de ejemplo',
+                texto: 'Ya conocés la sección. Hacé click en "Limpiar datos" para borrar la inversión de ejemplo y empezar con las tuyas propias.',
+                accion: { label: 'Limpiar datos de ejemplo', id: 'tour-btn-limpiar' }
+            },
+        ], {
+            onSaltar: limpiar,
+            onTerminar: limpiar,
+        });
+    }
 }
 
 function toggleInvFilterMenu(e) {
