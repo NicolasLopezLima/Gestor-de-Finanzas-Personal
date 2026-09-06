@@ -19,14 +19,46 @@ async function request(method, url, body) {
     return res.json();
 }
 
+async function requestMultipart(method, url, formData) {
+    const res = await fetch(BASE + url, { method, body: formData });
+    if (res.status === 401 || res.status === 403) {
+        window.location.href = '/login';
+        throw new Error('No autenticado');
+    }
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Error inesperado' }));
+        const e = new Error(err.error || 'Error en la petición');
+        e.filasConError = err.filasConError;
+        throw e;
+    }
+    return res.json();
+}
+
 const api = {
+    // Tours de onboarding
+    marcarTourVisto: (seccion) => request('POST', `/auth/tours-vistos/${seccion}`),
+
     // Periodos
     getPeriodoActual: () => request('GET', '/periodos/actual'),
     getPeriodo: (a, m) => request('GET', `/periodos/${a}/${m}`),
     listarPeriodos: () => request('GET', '/periodos'),
     agregarTransaccion: (a, m, dto) => request('POST', `/periodos/${a}/${m}/transacciones`, dto),
+    editarTransaccion: (id, dto) => request('PUT', `/periodos/transacciones/${id}`, dto),
     eliminarTransaccion: (id) => request('DELETE', `/periodos/transacciones/${id}`),
+    cancelarRecurrencia: (transaccionId) => request('DELETE', `/periodos/transacciones/${transaccionId}/recurrencia`),
+    listarCategorias: () => request('GET', '/categorias'),
+    crearCategoria: (dto) => request('POST', '/categorias', dto),
+    editarCategoria: (id, dto) => request('PUT', `/categorias/${id}`, dto),
+    contarUsoCategoria: (id) => request('GET', `/categorias/${id}/uso`),
+    eliminarCategoria: (id) => request('DELETE', `/categorias/${id}`),
     cerrarPeriodo: (a, m) => request('POST', `/periodos/${a}/${m}/cerrar`),
+    importarTransacciones: (a, m, formData) => requestMultipart('POST', `/periodos/${a}/${m}/transacciones/importar`, formData),
+    confirmarImportacion: (a, m, payload) => request('POST', `/periodos/${a}/${m}/transacciones/importar/confirmar`, payload),
+    importarTransaccionesConMapeo: (a, m, formData) => requestMultipart('POST', `/periodos/${a}/${m}/transacciones/importar/mapeo`, formData),
+    detectarHistorico: (formData) => requestMultipart('POST', '/transacciones/importar-historico/detectar', formData),
+    confirmarHistorico: (formData) => requestMultipart('POST', '/transacciones/importar-historico/confirmar', formData),
+    confirmarConflictosHistorico: (payload) => request('POST', '/transacciones/importar-historico/confirmar-conflictos', payload),
+    exportarHistorico: () => fetch(BASE + '/transacciones/exportar-historico'),
 
     // Presupuesto
     listarPresupuestos: () => request('GET', '/presupuestos'),
@@ -38,7 +70,12 @@ const api = {
     crearMeta: (dto) => request('POST', '/metas', dto),
     actualizarMeta: (id, dto) => request('PUT', `/metas/${id}`, dto),
     eliminarMeta: (id) => request('DELETE', `/metas/${id}`),
-    abonarMeta: (id, monto) => request('POST', `/metas/${id}/abonar`, { monto }),
+    abonarMeta: (id, monto, fecha) => request('POST', `/metas/${id}/abonar`, { monto, fecha }),
+    listarAbonosMeta: (id) => request('GET', `/metas/${id}/abonos`),
+    eliminarAbonoMeta: (metaId, abonoId) => request('DELETE', `/metas/${metaId}/abonos/${abonoId}`),
+    automatizarMeta: (id, monto, dia) => request('POST', `/metas/${id}/automatizar`, { monto, dia }),
+    pausarAutomatizacionMeta: (id) => request('POST', `/metas/${id}/pausar-automatizacion`),
+    obtenerRitmoMetas: () => request('GET', '/metas/ritmo'),
 
     // Inversiones
     listarInversiones: () => request('GET', '/inversiones'),
@@ -46,4 +83,11 @@ const api = {
     agregarInversion: (dto) => request('POST', '/inversiones', dto),
     actualizarInversion: (id, dto) => request('PUT', `/inversiones/${id}`, dto),
     eliminarInversion: (id) => request('DELETE', `/inversiones/${id}`),
+    obtenerCotizaciones: () => request('GET', '/inversiones/cotizaciones'),
+    buscarTickers: (q) => request('GET', `/inversiones/buscar-tickers?q=${encodeURIComponent(q)}`),
+    obtenerEvolucion: (mercado, periodo) => request('GET', `/inversiones/evolucion?mercado=${mercado}&periodo=${periodo}`),
 };
+
+// `api` es un `const` de script clásico — no queda expuesto en window por sí solo, y lo necesita
+// metas3d.js (un módulo ES, con su propio scope) para pedir los datos de las metas.
+window.api = api;

@@ -29,6 +29,22 @@ public class TransaccionDTO {
 
     private Long periodoId;
 
+    private Long transaccionFijaId; // solo lectura, lo completa el servidor
+
+    private boolean repetirTodosLosMeses; // solo se lee al crear (agregarTransaccion)
+
+    // frecuencia/intervaloDias viajan en ambos sentidos: al crear (agregarTransaccion) los lee el
+    // servidor si repetirTodosLosMeses es true; al leer (toDTO) el servidor los completa desde la
+    // TransaccionFija vinculada, para que el frontend pueda mostrar la frecuencia real al editar.
+    private String frecuencia; // nombre de FrecuenciaRecurrencia; null si no es recurrente
+    private Integer intervaloDias; // solo tiene valor si frecuencia == "PERSONALIZADA"
+
+    // Si tipo == META: a qué meta corresponde el abono (obligatorio, se maneja vía
+    // registrarAbonoMeta, no vía este DTO directamente).
+    // Si tipo == GASTO: vínculo opcional — de qué meta sale la plata de este gasto, para poder
+    // calcular cuánto de lo aportado a esa meta ya está gastado.
+    private Long metaId;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getDescripcion() { return descripcion; }
@@ -43,4 +59,14 @@ public class TransaccionDTO {
     public void setFecha(LocalDate fecha) { this.fecha = fecha; }
     public Long getPeriodoId() { return periodoId; }
     public void setPeriodoId(Long periodoId) { this.periodoId = periodoId; }
+    public Long getTransaccionFijaId() { return transaccionFijaId; }
+    public void setTransaccionFijaId(Long transaccionFijaId) { this.transaccionFijaId = transaccionFijaId; }
+    public boolean isRepetirTodosLosMeses() { return repetirTodosLosMeses; }
+    public void setRepetirTodosLosMeses(boolean repetirTodosLosMeses) { this.repetirTodosLosMeses = repetirTodosLosMeses; }
+    public String getFrecuencia() { return frecuencia; }
+    public void setFrecuencia(String frecuencia) { this.frecuencia = frecuencia; }
+    public Integer getIntervaloDias() { return intervaloDias; }
+    public void setIntervaloDias(Integer intervaloDias) { this.intervaloDias = intervaloDias; }
+    public Long getMetaId() { return metaId; }
+    public void setMetaId(Long metaId) { this.metaId = metaId; }
 }
