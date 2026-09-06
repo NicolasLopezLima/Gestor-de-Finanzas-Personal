@@ -207,15 +207,14 @@ h1 {
     const label = document.getElementById('label');
 
     const TRAMOS = [
-        { hasta: 18,  ms: 18000 },
-        { hasta: 35,  ms: 40000 },
-        { hasta: 36,  ms: 18000 },
-        { hasta: 60,  ms: 35000 },
-        { hasta: 61,  ms: 25000 },
-        { hasta: 85,  ms: 30000 },
-        { hasta: 87,  ms: 20000 },
-        { hasta: 99,  ms: 8000  },
-        { hasta: 100, ms: 4000  },
+        { hasta: 18,  ms: 8000  },
+        { hasta: 35,  ms: 20000 },
+        { hasta: 36,  ms: 8000  },
+        { hasta: 60,  ms: 18000 },
+        { hasta: 61,  ms: 10000 },
+        { hasta: 85,  ms: 15000 },
+        { hasta: 87,  ms: 8000  },
+        { hasta: 99,  ms: 5000  },
     ];
 
     let pct = 0, tramoIdx = 0, startTime = null, startPct = 0, raf;
@@ -231,8 +230,8 @@ h1 {
         if (t >= 1) {
             tramoIdx++;
             if (tramoIdx >= TRAMOS.length) {
-                label.textContent = '¡Listo!';
-                setTimeout(() => location.reload(), 800);
+                bar.style.width = '99%';
+                label.textContent = '99%';
                 return;
             }
             startTime = null;
